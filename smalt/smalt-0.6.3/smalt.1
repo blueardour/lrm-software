@@ -1,0 +1,578 @@
+'\" t
+.\" Manual page created with latex2man on Tue Jul 31 17:21:41 BST 2012
+.\" NOTE: This file is generated, DO NOT EDIT.
+.de Vb
+.ft CW
+.nf
+..
+.de Ve
+.ft R
+
+.fi
+..
+.TH "SMALT" "1" "2012/07/31" "Bioinformatics Tools " "Bioinformatics Tools "
+.SH NAME
+
+.PP
+SMALT
+is a pairwise sequence alignment program for the 
+efficient mapping of DNA sequencing reads onto genomic reference 
+sequences. It uses a combination of short\-word hashing and dynamic 
+programming. Most types of sequencing platforms are 
+supported including paired\-end sequencing reads. 
+.PP
+.SH SYNOPSIS
+
+smalt
+\fITASK\fP
+[\fBOPTIONS\fP]
+[\fIINDEX\fP
+\fISEQFIL\-A\fP
+[\fISEQFIL\-B\fP]]
+.br
+.PP
+\fBAvailable tasks\fP
+.TP
+smalt index [\fBINDEX\-OPTIONS\fP] \fIINDEX\fP
+\fIREFSEQ\-FILE\fP
+.br
+builds a hash index of k\-mer words in the 
+reference sequences and stores it on disk. Two files are written to disk: \fIINDEX.smi\fP
+.TP
+smalt map [\fBMAP\-OPTIONS\fP] \fIINDEX\fP \fIREAD\-FILE\fP [\fIMATE\-FILE\fP]
+.br
+loads the index into memory and aligns single or 
+(if \fIMATE\-FILE\fP
+is specified) paired\-end reads against the reference 
+sequences. 
+.TP
+smalt sample [\fBSAMPLE\-OPTIONS\fP] \fIINDEX\fP \fIREAD\-FILE\fP \fIMATE\-FILE\fP
+.br
+samples distribution of insert lengths for paired reads. A subset of the pairs is 
+aligned with a reference using the index. 
+.TP
+smalt check \fIREAD\-FILE\fP [\fIMATE\-FILE\fP]
+.br
+checks whether read input files conform to FASTA/FASTQ format specification. 
+.TP
+smalt help
+.br
+for a brief summmary of this software. 
+.TP
+smalt version
+.br
+prints version information. 
+.TP
+.PP
+\fBHelp on individual tasks\fP
+.TP
+smalt
+\fITASK\fP
+\fI\-H\fP
+.br
+e.g. smalt index
+\fI\-H\fP
+for help on options influencing the generation of the 
+hash index. 
+.PP
+.SH DESCRIPTION
+
+Running SMALT
+involves two steps. First, an index of short 
+words has to be built (smalt index). Then the sequencing reads are 
+mapped onto the reference (smalt map). Sequence input files must be 
+provided in FASTA or FASTQ file formats (ASCII text, see below). 
+.PP
+SMALT
+uses a hash table of fixed\-length words sampled along the 
+genomic reference sequence in the file \fIREFSEQ\-FILE\fP
+at 
+equidistant steps. The sequencing reads in the file \fIREAD\-FILE\fP
+and, if paired\-end reads are mapped, \fIMATE\-FILE\fP
+are then mapped 
+against the genomic reference sequences one\-by\-one. The sequence files 
+\fIREFSEQ\-FILE\fP,
+\fIREAD\-FILE\fP
+and \fIMATE\-FILE\fP
+have to be in 
+FASTA or FASTQ format. First, exactly matching seeds are identified in 
+the reference sequences by looking up the k\-mer words of the read in 
+the hash index. Based on these seeds, potentially matching sequence 
+segments are selected for alignment by a Smith\-Waterman algorithm.
+.br
+.PP
+.SH OPTIONS
+
+.PP
+.SS INDEX\-OPTIONS
+.PP
+.TP
+\fB\-k \fP\fIwordlen\fP
+ Sets the length of the hashed 
+words. \fIwordlen\fP
+is an integer with 2 < \fIwordlen\fP
+<=20 (default: 13). 
+.PP
+.TP
+\fB\-s \fP\fIskipstep\fP
+ Sampling step size, i.e. the distance 
+between successive words that are hashed along the genomic reference 
+sequence. With the option \fB\-s\fP
+1 every word is hashed, with 
+\fB\-s\fP
+2 every second word, with \fB\-s\fP
+3 very third etc. By default 
+\fIskipstep\fP
+is set equal to \fIwordlen\fP\&.
+.PP
+.SS MAP\-OPTIONS
+.PP
+.TP
+\fB\-a\fP
+ When this flag is set, explicit alignments are output 
+along with the mappings. 
+.PP
+.TP
+\fB\-c \fP\fImincover\fP
+ Only consider mappings where the k\-mer 
+word seeds cover the query read to  a minimum extent. If 
+\fImincover\fP
+is an integer or floating point value > 1.0, at 
+least this many bases of the read must be covered by k\-mer word 
+seeds. If \fImincover\fP
+is a floating point value <= 1.0, 
+it specifies the fraction of the query read length that must be 
+covered by k\-mer word seeds. This option can be used only when the 
+\&'\-x\&' flag is also set. 
+.PP
+.TP
+\fB\-d \fP\fIscorediff\fP
+ Set a threshold of the Smith\-Waterman 
+alignment score relative to the maximum score. This option affects 
+the way alignments are reported in single\-read mode. For each read 
+all alignments resulting in Smith\-Waterman scores within 
+\fIscorediff\fP
+of the maximum score are reported. Mappings with 
+scores lower than this value are skipped. 
+If \fIscordiff\fP
+(an integer) 
+is set to a value < 0, all alignments are reported with 
+scores above the threshold set by the \fB\-m \fP\fIminscor\fP
+option.
+.brIf set to 0 (default) only mappings with the best score 
+are reported. Reads with multiple best mappings are reported as 
+unmapped. This is also how read pairs are reported irrespective of 
+the value of \fIscorediff\fP\&.
+.PP
+.TP
+\fB\-f \fP\fIformat\fP
+ Specifies the output format. \fIformat\fP
+can be one of the following strings: 
+.RS
+.TP
+\fIcigar\fP
+ (default) Compact Idiosyncratic Gapped Alignment Report
+.br(see 
+\fBhttp://www.sanger.ac.uk/resources/software/ssaha2\fP)
+.TP
+\fIgff\fP
+ General Feature Format version 2
+.br
+(see \fBhttp://www.sanger.ac.uk/resources/software/gff/spec.html\fP)
+.TP
+\fIsam\fP
+ Sequence Alignment/Map format (\fBhttp://samtools.sourceforge.net\fP)
+.br
+with hard clipped sequences. 
+.TP
+\fIsamsoft\fP
+ like \fIsam\fP
+but using soft clipping 
+.TP
+\fIssaha\fP
+ native output format of the SSAHA2 software package
+.br
+(\fBhttp://www.sanger.ac.uk/resources/software/ssaha2\fP)
+.RE
+.RS
+.PP
+.RE
+.TP
+\fB\-g \fP\fIinsfil\fP
+ Use the distribution of insert sizes stored in the file \fIinsfil\fP\&.
+This file is in ASCII format and can be generated using the smalt sample
+task. 
+.PP
+.TP
+\fB\-H \fP
+ Print instructions on screen. 
+.PP
+.TP
+\fB\-i \fP\fIinsertmax\fP
+ Maximum insert size for paired\-end reads. \fIinsertmax\fP
+is 
+a positive integer (default 500). 
+.PP
+.TP
+\fB\-j \fP\fIinsertmin\fP
+ Minimum insert size for paired\-end reads \fIinsertmax\fP
+is 
+a positive integer (default 0). 
+.PP
+.TP
+\fB\-l \fP\fIpairtyp\fP
+ Type of read pair library used. This 
+specifies the expected relative orientation of mate\-pairs. \fIpairtyp\fP
+can be either \fIpe\fP,
+i.e. for the Illumina paired\-end library for 
+short inserts (orientation: $-->$ $<--$),\fImp\fP
+for the Illumina mate pair library (long inserts, $<--$ 
+$-->$)or \fIpp\fP
+when both mates are on the same strand 
+($-->$$-->$)as in 454 read\-pair libraries. 
+.PP
+.TP
+\fB\-m \fP\fIminscor\fP
+ Sets an absolute threshold of the 
+Smith\-Waterman scores. Mappings with scores below that threshold 
+will not be reported. \fIminscor\fP
+is a positive integer (default 
+\fIminscor\fP
+= \fIwordlen\fP
++ \fIskipstep\fP
+\- 1). 
+.PP
+.TP
+\fB\-n \fP\fInthreads\fP
+ Run SMALT
+using multiple 
+threads. \fInthread\fP
+is the number of additional threads forked 
+for mapping. The order of the reads is not preserved for the output 
+unless the flag \fB\-O\fP
+is specified. 
+.PP
+.TP
+\fB\-o \fP\fIoufilnam\fP
+ Write mapping output (e.g. SAM lines) to 
+a separate file named \fIoufilnam\fP\&.
+If this option is not 
+specified, mappings are written to standard output together with 
+other messages. 
+.PP
+.TP
+\fB\-O\fP
+ Output mappings the order of the reads in the input 
+files when using multiple threads (option \fB\-n \fP\fInthreads\fP).
+.PP
+.TP
+\fB\-p\fP
+ Report partial alignments if they are complementary on 
+the query read (split or chimeric reads). A maximum of two partial 
+alignments are output per read. The second alignment is labelled 
+\&'P\&' (\&'\-f ssaha\&' or \&'\-f cigar\&' formats) or has the \&'scondary alignment\&' 
+bit\-flag (0x100) of the SAM FLAG field raised (\&'\-f sam\&' or \&'\-f samsoft\&'). 
+.PP
+.TP
+\fB\-q \fP\fIminbasq\fP
+ Sets a base quality threshold 0 <= 
+\fIminbasq\fP
+<= 10 (default \fIminbasq\fP
+= 0). k\-mer words of the 
+read with base pairs that have a base quality below this threshold 
+are not looked up in the hash index. 
+.PP
+.TP
+\fB\-r \fP\fIseed\fP
+ If the there are multiple mappings with the 
+same best alignment score report one one picked at random. This is 
+relevant only in paired\-end mode or with the option \fB\-d \fP0
+(the default). \fIseed\fP
+is a positive integer used to to seed the 
+pseudo\-random generator. With \fIseed\fP
+= 0 a seed is derrived from 
+the current calendar time. Without this option (default) reads with 
+multiple best mappings are reported as unmapped. 
+.PP
+.TP
+\fB\-w\fP
+ Output complexity weighted Smith\-Waterman scores. 
+.PP
+.TP
+\fB\-x\fP
+ This flag triggers a more exhaustive search for 
+alignments at the cost of decreased speed. In paired\-end mode each 
+mate is mapped independently. (By default the mate with fewer hits in 
+the hash index is mapped first and the vicinity is searched for its 
+mate.) 
+.PP
+.TP
+\fB\-y \fP\fIminid\fP
+ Filters output alignment by a threshold in 
+the number of exactly matching nucleotides. \fIminid\fP
+is a positive 
+integer or a floating point number <= 1.0 specifying a fraction of the 
+read length. 
+.PP
+.SS SAMPLE\-OPTIONS
+.PP
+.TP
+\fB\-m \fP\fIminscor\fP
+ Sets an absolute threshold of the 
+Smith\-Waterman scores. Mappings with scores below that threshold 
+will not be used for the distribution of insert lengths. 
+.PP
+.TP
+\fB\-n \fP\fInthreads\fP
+ Run SMALT
+using multiple threads. 
+.PP
+.TP
+\fB\-o \fP\fIoufilnam\fP
+ Write output to a separate file named 
+\fIoufilnam\fP
+rather than standard output. 
+.PP
+.TP
+\fB\-q \fP\fIminbasq\fP
+ Sets a base quality threshold 0 <= 
+\fIminbasq\fP
+<= 10 (default \fIminbasq\fP
+= 0). k\-mer words of the 
+read with base pairs that have a base quality below this threshold 
+are not looked up in the hash index. 
+.PP
+.TP
+\fB\-u \fP\fInreads\fP
+ Map only every \fInreads\fP\-th
+read pair (default 100). 
+.PP
+.SH NOTE ON PAIRED\-END READS
+
+.PP
+The two mates of paired reads are expected in separate FASTQ input 
+files. The mates of a pair are identified by the position in the 
+respective FASTQ file. Read names are \fInot\fP
+checked by the 
+software. It is up to the user to make sure the mates of the i\-th read 
+are the i\-th sequences in the FASTQ files. As a consequence 
+paired and unpaired reads cannot be mixed in the input files.
+.br
+.PP
+The \fB\-i\fP
+and \fB\-j\fP
+options specify the expected insert size 
+range influence the way in which the mates are aligned. The mate with 
+fewer hits in the hash index is mapped first and the vicinity 
+defined by the expected range is searched for its mate. If the 
+\fB\-x\fP
+option is specified both mates are aligned independently.
+.br
+.PP
+In some output formats the reads are labelled or flagged, 
+e.g. as a \fIproper\fP
+pair in the SAM format, with respect to the insert size 
+range. But the alignments of all mates will be reported regardless of 
+the range specfied with the \fB\-i\fP
+and \fB\-j\fP
+options. 
+.PP
+.SS DEFINITION OF \&'PROPER\&' PAIRS IN OUTPUT FORMATS
+By default, the mates of a read pair are in \fIproper\fP
+orientation when they 
+map to opposite strands with the 5\&'\-ends on the outside of the double 
+stranded segment spanned by the pair as expected from the Illumina 
+paired\-end (PE) libraries with short insert lengths. A \fIproper\fP
+pair has 
+both mates mapped in \fIproper\fP
+orientation within the expected 
+insert range (specified with the \fB\-i\fP
+and \fB\-j\fP
+options).
+.br
+.PP
+Paired reads from the Illumina mate\-pair (MP) libraries for long 
+insert lenghts will have the 3\&' ends on the outside of the segment 
+spanned by the pair. Signalling this to the progam \fIvia\fP
+the 
+\fB\-l\fP\fI mp\fP
+option is important for correct labelling, 
+e.g. of \&'proper\&' pairs, and also for assigning the correct mapping 
+quality scores. 
+.PP
+.SS DEFININTION OF INSERT SIZE
+.PP
+The insert size of a read pair refers to the distance between the 5\&'\-ends of the 
+mapped reads. This is in accordance with early SAM/BAM specifications but 
+breaches SAM/BAM specifications from version 1.3 onwards.
+.br
+.PP
+.SS EXTENSION OF THE CIGAR OUTPUT FORMAT
+The CIGAR output format (option \fB\-f \fP\fIcigar\fP)
+produced by 
+smalt
+comprises a label after the GIGAR tag (e.g. label 
+A in GIGAR:A:51). The labels have the following meaning: 
+.PP
+.TP
+A 
+mates are in \fIproper\fP
+orientation within the limits 
+specified by the \fB\-i\fP
+and \fB\-j\fP
+options. 
+.PP
+.TP
+B 
+mates in \fIproper\fP
+orientation outside the limits 
+specified by the \fB\-i\fP
+and \fB\-j\fP
+options but on the same 
+reference sequence (i.e. chromosome or contig). 
+.PP
+.TP
+C 
+mates are not in \fIproper\fP
+orientations but on the 
+same chromosome or contig. 
+.PP
+.TP
+D 
+mates are mapped to different chromosomes or contigs. 
+.PP
+.TP
+N 
+read could not be mapped. 
+.PP
+.TP
+P 
+Alignment is the second partial alignment of a split 
+(chimaeric) read (only with \fB\-p\fP
+flag). 
+.PP
+.TP
+R 
+Read is reported as \&'not mapped\&' because there were multiple 
+possible mappings, but no random assignment was made. 
+.PP
+.TP
+S 
+Read was mapped as a single read (sole mapped read of 
+a pair). 
+.PP
+.SH NOTE ON SMITH\-WATERMAN SCORES
+
+SMALT
+uses \&'standard\&' Smith\-Waterman scores:
+.br
+match: +1; mismatch: \-2; gap opening: \-4; gap extension: \-3.
+.br
+There is currently no way for the user to modify these settings.
+.br
+.PP
+The options \fB\-d \fP\fIscordiff\fP
+and \fB\-m \fP\fIminscor\fP
+which 
+determine how many alignments are reported, are based on Smith\-Waterman 
+scores rather than e.g. edit distance. Calculating \fIscordiff\fP
+from 
+the edit distance is simple if SMALT
+is run without the 
+\fB\-w\fP
+flag.
+.br
+.PP
+.SH MEMORY REQUIREMENTS
+
+.PP
+The memory footprint of SMALT
+is determined primarily by the 
+total number N of base pairs of the genomic reference sequences and 
+by the word length k (option \fB\-k \fP\fIk\fP)
+and the sampling step 
+s (option \fB\-s \fP\fIs\fP)
+with which the hash index is 
+generated. SMALT
+requires approx. 4*(4^k+N/s) or 12*N/s 
+(whichever number is smaller) bytes of memory for the index. The 
+genomic reference sequences occupy about 2N/5 bytes during 
+construction of the index and during mapping. 
+.PP
+For example constructing an index of words of length 13 sampled at 
+every 6^{th} position (options \fB\-k\fP
+13 \fB\-s\fP
+6) for the human 
+genome ($N = 3 x 10^9$) requires 4 GB. Mapping reads with this index 
+requires 3.3 GB of memory. An index of the human genome built with 
+options \fB\-k\fP
+13 \fB\-s\fP
+13 (default) requires 4.3 GB during 
+construction and 2.3 GB during mapping. The recommended setting for 
+100 bp Illumina reads, \fB\-k\fP
+20 \fB\-s\fP
+13, requires 4.0 GB 
+for construction and 3.8 GB for mapping. 
+.PP
+.SH INDEX FILES
+
+.PP
+The command
+.br
+smalt index
+[\fB\-k \fP\fIk\fP]
+[\fB\-s \fP\fIs\fP]\fIINDEX\fP
+\fIREFSEQ\-FILE\fP
+.br
+writes 2 files to disk: 
+.PP
+.TP
+INDEX.sma
+ Compressed set of reference sequences for 
+which the hash table of k\-mer words was generated. 
+N*2/5 bytes where N is the total number of base pairs of the genomic reference 
+sequences. 
+.PP
+.TP
+INDEX.smi
+ The actual hash index. The file size is about 
+min(4*(4^k+N/s), 12*N/s) bytes. 
+.PP
+.SH SEQUENCE FILE FORMATS
+
+.PP
+Sequence input files are expected in FASTA or FASTQ format (see
+.br
+\fBhttp://en.wikipedia.org/wiki/FASTQ_format\fP).
+.br
+Variations of the FASTQ format are explained in
+.br
+\fBhttp://maq.sourceforge.net/fastq.shtml\fP\&.
+.br
+.PP
+.SH VERSION
+
+.PP
+Version: 0.6.3 of 2012/07/31\&.
+.PP
+.SH LICENSE AND COPYRIGHT
+
+.PP
+.TP
+Copyright 
+(C)2010 Genome Research Limited. 
+.PP
+.TP
+License 
+Binaries are available free of charge. The source code 
+will be made available shortly under the GNU General Public License
+.br
+(\fBhttp://www.gnu.org/licenses/\fP).
+.PP
+.SH AUTHORS
+
+.PP
+SMALT was written by Hannes Ponstigl [\fBhp3@sanger.ac.uk\fP]
+at the 
+Wellcome Trust Sanger Institute, Cambridge, UK in 2010. 
+.\" NOTE: This file is generated, DO NOT EDIT.
