@@ -4,13 +4,19 @@
 
 #include "types.h"
 
+struct piece
+{
+	u32 plen;
+	u32 nb;
+};
+
 struct chromosome
 {
   u32 slen;
-  u32 nb, ne;
-	int sections;
+	int pnum;
 	int nlen;
 	char * sn;
+	struct piece * pie;
 };
 
 struct Reference

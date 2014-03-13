@@ -24,5 +24,9 @@ int main()
 	sprintf(buffer, "/proc/%d/status", pid);
 	printf("Pid:%d s:%s\r\n",pid, buffer);
 
+	a = 0;
+	if(a++, a==1) printf("A");
+	else printf("B");
+
   return 0;
 }
