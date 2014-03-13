@@ -22,8 +22,8 @@ static int print_help()
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
   fprintf(stdout, "  -v(erbose)\r\n");
-  fprintf(stdout, "  -r[eference] str\r\n");
-  fprintf(stdout, "  -d(irectory) str\r\n");
+  fprintf(stdout, "  -u[spt] str\r\n");
+  fprintf(stdout, "  -p(attern) str\r\n");
   fprintf(stdout, "  -V(ersion)\r\n");
   return 0;
 }
@@ -31,78 +31,47 @@ static int print_help()
 static void init_Options(struct Sort_Options * op)
 {
 	op->verbose = 3;
-  op->database = NULL;
-	op->pac = NULL;
-	op->spt = NULL;
+  op->prefix = NULL;
+	op->pattern = NULL;
 	op->si = NULL;
-	op->dir = NULL;
+	op->uspt = NULL;
+	op->spt = NULL;
 }
 
 static void format_Options(struct Sort_Options * op)
 { 
 	int len;
-	char * path;
 
-	len = 0;
-	path = NULL;
+	if(op->prefix != NULL) len = strlen(op->prefix);
 
-	if(op->dir != NULL) path = op->dir; else path=getFilePath(op->database);
-	if(op->prefix != NULL) len += strlen(op->prefix);
-	len = strlen(path) + strlen(getFileName(op->database));
+	op->si = (char *)malloc(len+6);
+	op->spt = (char *)malloc(len+6);
+	op->uspt = (char *)malloc(len+6);
 
-	op->si = (char *)malloc(len+5);
-	op->pac = (char *)malloc(len+5);
-	op->uspt = (char *)malloc(len+5);
+	strcpy(op->si, op->prefix);
+	strcpy(op->spt, op->prefix);
+	strcpy(op->uspt, op->prefix);
 
-	strcpy(op->si, path);
-	strcpy(op->pac, path);
-	strcpy(op->uspt, path);
-
-	if(path[strlen(path)-1] != '/')
-	{
-		op->si[strlen(path)] = '/';
-		op->pac[strlen(path)] = '/';
-		op->uspt[strlen(path)] = '/';
-		op->si[strlen(path)+1] = 0;
-		op->pac[strlen(path)+1] = 0;
-		op->uspt[strlen(path)+1] = 0;
-		len++;
-	}
-
-	strcat(op->si, getFileName(op->database));
-	strcat(op->pac, getFileName(op->database));
-	if(op->prefix != NULL) strcat(op->si, op->prefix);
-	strcat(op->uspt, getFileName(op->database));
-
-	len = len - strlen(getFileType(op->database));
-	op->uspt[len] = 0;
-	op->si[len] = 0;
-	op->pac[len] = 0;
-	strcat(op->si, "si");
-	strcat(op->uspt, "uspt");
-	strcat(op->pac, "pac");
+	strcat(op->si, ".si");
+	strcat(op->uspt, ".uspt");
+	strcat(op->spt, ".spt");
 
 	if(op->verbose & 0x80) op->verbose = 0x80;
 }
 
-static void dump_Options(struct Index_Options * op)
+static void dump_Options(struct Sort_Options * op)
 {
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
   fprintf(stdout, "  -v(erbose) 0x%02x\r\n", op->verbose);
-  fprintf(stdout, "  -i(nterval) %d\r\n", op->interval);
-  fprintf(stdout, "  -l(ength) %d\r\n", op->length);
-  fprintf(stdout, "  -b(and) %d\r\n", op->band);
-  fprintf(stdout, "  -p(refix) %s\r\n", op->prefix);
-  fprintf(stdout, "  -d(irectory) %s\r\n", op->dir);
-  fprintf(stdout, "  -r[eference] %s\r\n", op->database);
-  fprintf(stdout, "  -p[ac] %s\r\n", op->pac);
-  fprintf(stdout, "  -u[spt] %s\r\n", op->uspt);
+  fprintf(stdout, "  -p[attern] %s\r\n", op->pattern);
+  fprintf(stdout, "  -u(spt) %s\r\n", op->uspt);
+  fprintf(stdout, "  -s[pt] %s\r\n", op->spt);
   fprintf(stdout, "  -s[i] %s\r\n", op->si);
 }
 
 
-int sort_fingerprint(struct Index_Options * op)
+int sort_fingerprint(struct Sort_Options * op)
 {
 	struct Reference ref;
 	struct chromosome * chrptr;
@@ -114,41 +83,38 @@ int sort_fingerprint(struct Index_Options * op)
 	int tmp, num;
 	char c;
 	
-  if(op->length < 1 || op->length > 65000) return -1;
-
-
   format_Options(op);
 	fp = database = NULL;
 	buffer = ptr = NULL;
 
-	ptr = getFileType(op->database);
-	if(strcmp(ptr, "fa") != 0 && strcmp(ptr, "fasta") != 0)
+	ptr = getFileType(op->uspt);
+	if(strcmp(ptr, "uspt") != 0)
 	{
 		fprintf(stderr, "Error: database type not support:%s\r\n", ptr);
 		return -2;
 	}
 
-  database = fopen(op->database,"r");
+  database = fopen(op->uspt, "rb");
   if(database == NULL)
   {
-    fprintf(stderr, "Database cannot open:%s\r\n",op->database);
+    fprintf(stderr, "Database cannot open:%s\r\n", op->uspt);
     return -2;
   }
 
-	fprintf(stdout, "=> Parsing database:\r\n");
-  fseek(database, 0, SEEK_SET);
-	if(read2f_util(database, '>', 0, NULL, 0) < 0)
+	tmp = fread(&ref, sizeof(ref), 1, database);
+	if(tmp < 0)
 	{
-		fprintf(stderr, "Error fa/fasta file format \r\n");
-		fclose(fp);
-		fclose(database);
-		return -3;
+		fprintf(stderr, "Read database error-1.\r\n");
+		return -2;
 	}
 
-	num = 32;
-	ref.chrom = (struct chromosome *) malloc(sizeof(struct chromosome)*num);
-	ref.A = ref.C = ref.G = ref.T = ref.N = 0;
-	ref.seqs = 0;
+	ref.chrom = (struct chromosome *) malloc(sizeof(struct chromosome)*ref.seqs);
+	tmp = fread(ref.chrom, sizeof(ref.chrom), ref.seqs, database);
+	if(tmp < 0)
+	{
+		fprintf(stderr, "Read database error-2.\r\n");
+		return -2;
+	}
 
 	fprintf(stdout, "===> Dump parameters...%d\r\n", op->verbose & 0x80);
 	if(op->verbose & 0x80)
@@ -397,7 +363,7 @@ int sort_fingerprint(struct Index_Options * op)
 }
 
 
-#ifdef _FINGERPRINT_MAIN_C_
+#ifndef _FINGERPRINT_MAIN_C_
 
 int main(int argc, char ** argv)
 {
