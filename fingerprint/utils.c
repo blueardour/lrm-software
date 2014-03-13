@@ -8,97 +8,90 @@
 
 #include "utils.h"
 
-
-char * getFileName(char * FilePath)
+char * getFileName(const char * FilePath)
 {
   char * filename;
   int i;
-  filename = FilePath;
-  for(i=0; i<strlen(FilePath); i++)
+  filename = (char *)FilePath;
+  for(i=strlen(FilePath)-1; i>=0; i--)
   {
     if(FilePath[i] == '\\' || FilePath[i] == '/')
-      filename = FilePath + i + 1;  
+		{
+      filename = (char *)(FilePath + i + 1);
+			break;
+		}
   }
   return filename;
 }
 
-char * getFileType(char * FilePath)
+char * getFilePath(const char * FilePath)
+{
+  char * path;
+  int i;
+  path = (char *) malloc(strlen(FilePath));
+  for(i=strlen(FilePath)-1; i>=0; i--)
+  {
+    if(FilePath[i] == '\\' || FilePath[i] == '/')
+		{
+			strncpy(path, FilePath, i+1);
+			path[i+1] = 0;
+			break;
+		}
+  }
+	if(i == -1)
+	{
+		free(path);
+		return NULL;
+	}
+	else return path;
+}
+
+char * getFileType(const char * FilePath)
 {
   char * type;
   int i;
-  type = FilePath;
+  type = (char *)FilePath;
   for(i=strlen(FilePath)-1; i>=0; i--)
   {
     if(FilePath[i] == '.' )
-	{
-		type = FilePath + i + 1;
-		break;
-	}
+		{
+			type = (char *)(FilePath + i + 1);
+			break;
+		}
   }
   return type;
 }
 
-int read2b_util(FILE *fp, char c, int forward, char * buffer, int len)
+// forward
+// 0x01: copy to file
+// 0x02: enable filter
+int read2f_util(FILE *fp, char c, u08 forward, FILE * fp2, int filter)
 {
-	char s;
-	int i;
-	i=0;
+	char s, ls;
+	int n;
+
+	if(forward & 0x01)
+		if(fp2 == NULL) return -2;
+
+	ls = 0; n = 1;
 	while((s=fgetc(fp)) != EOF)
 	{
-		if(s==c) return 0;
-		else if(forward != 0 && len != 0) 
-			if(s=='A' || s=='C' || s=='G' || s=='T') 
+		if(s==c)
+		{
+			return 0;
+		}
+		else if(s=='A' || s=='C' || s=='G' || s=='T' || s=='N')
+		{
+			if(forward & 0x01) fputc(s, fp2);
+			if(forward & 0x02)
 			{
-				buffer[i++] = s;
-				--len;
+				if(ls=='N' && s=='N') n++; else n = 1;
+				if(n == filter) return -3;
+				ls = s;
 			}
+		}
 	}
-	if(forward != 0 && len == 0) return -1;
-	else return -2;
-}
-
-int read2f_util(FILE *fp, char c, int forward, FILE * fp2)
-{
-	char s;
-	while((s=fgetc(fp)) != EOF)
-	{
-		if(s==c)
-		{
-			if(fp2 != NULL) fputc(s, fp2);
-			return 0;
-		}
-		else if(forward == 1)
-		{
-			if(s=='A' || s=='C' || s=='G' || s=='T') if(fp2 != NULL) fputc(s, fp2);
-		}
-		else if(fp2 != NULL) fputc(s, fp2);
-	}
-	return -2;
-}
-
-int read2s_util(FILE *fp, char c, int forward)
-{
-	char s;
-	while((s=fgetc(fp)) != EOF)
-	{
-		if(s==c)
-		{
-			putchar(s);
-			return 0;
-		}
-		else if(forward == 1)
-		{
-			if(s=='A' || s=='C' || s=='G' || s=='T') putchar(s);
-		}
-		else putchar(s);
-	}
-	return -2;
-}
-
-unsigned int diff(unsigned int a, unsigned int b)
-{
-	if(a>b) return a - b;
-	else return b - a;
+	return -1;
 }
 
 

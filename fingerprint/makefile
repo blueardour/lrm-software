@@ -25,6 +25,9 @@ lookup: lookup.o $(LIBS)
 index: index.o $(LIBS)
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
+LRsim: LRsim.o $(LIBS)
+	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+
 dump: dump.o $(LIBS)
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 

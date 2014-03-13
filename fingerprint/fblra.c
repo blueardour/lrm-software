@@ -1,8 +1,8 @@
 //  ******************************************************************//
 //  author: chenp
-//  description: build fingerprint of sequence 
+//  description: feature based long read alinger
 //  version: 1.0
-//	date: 2014-02-24
+//	date: 2014-03-10
 //  ******************************************************************//
 
 
@@ -12,25 +12,35 @@
 #include <stdio.h>
 #include "utils.h"
 
-typedef long FType;
+#ifndef VERSION
+#define VERSION "1.0"
+#endif
+
+#ifndef PROGRAM
+#define PROGRAM "fblra"
+#endif
+
+typedef u32 FType;
 
 struct Options
 {
-	u32 length;
+	u08 verbose;
+	u08 er, ep;
+	u32 length, interval;
 	u32 begin, end;
-	u32 interval;
-	int type;  // 0 indicate reference, others indicate query
-	int power;
-	int verbose;
 	char * database;
 	char * filename;
 };
 
-int print_help(char * s)
+struct DHeader
 {
-  printf("Usage(version 1.0):\r\n%s", s);
-  printf(" -b[egin] num -e[nd] num -i[nterval] num -l[ength] num -d[atabase] str -f[ilename] str -v num\r\n");
-  printf("(begin = 0, end = SEEK_END, interval = 10 if not specific.)\r\n");
+	u32 beg, end;
+};
+
+int print_help()
+{
+	printf("%s:\r\n", VERSION);
+  printf("%s -i(nterval) num -l(ength) num -d[atabase] str | -V\r\n", PROGRAM);
   return 0;
 }
 
@@ -39,89 +49,61 @@ void init_Options(struct Options * op)
   op->length = 1000;
 	op->begin = 0;
 	op->end = 0;
-	op->interval = 10;
+	op->interval = 128;
+	op->verbose = 0;
   op->database = NULL;
   op->filename = NULL;
-	op->type = 0;
-	op->power = 2;
-	op->verbose = -1;
 }
 
 void format_Options(struct Options * op)
 { 
 	int len;
-	if(op->interval <= 0) op->interval = 10;
-	if(op->begin < 0)
+	if(op->interval <= 0) op->interval = 128;
+	if(op->begin < 0)	op->begin = 0;
+	if(op->filename == NULL && op->verbose == 0)
 	{
-		printf("Warning: '-b num' now is %ld\r\n", op->begin);
-		op->begin = 0;
-	}
-	if(op->end < 0) op->end = -1;
-
-	if(op->filename == NULL && op->verbose == -1)
-	{
-		len = strlen(getFileName(op->database)) + 1;
+		len = strlen(getFileName(op->database));
 		op->filename = (char *)malloc(len);
 		strcpy(op->filename, getFileName(op->database));
 		op->filename[len-1] = 0;
-		op->filename[len-2] = 't';
-		op->filename[len-3] = 'p';
+		len = len - strlen(getFileType(op->filename));
+		op->filename[len] = 0;
 	}
-
-	if(strcmp(getFileType(op->database), "ex") == 0) op->type = 0;
-	else op->type = 1;
-
-	if(op->verbose == 0) op->verbose = 1; 
 }
 
 void dump_Options(struct Options * op)
 { 
-	printf("begin:%ld end:%ld \r\n",op->begin, op->end);
+	fprintf(stderr, "filename:%s begin:%ld end:%ld \r\n", op->filename, op->begin, op->end);
 }
 
 int build_fingerprint(struct Options * op)
 {
+	u32 i,j;
+	u32 dlen;
+	FType finger[2][4], print[2][4], * power;
+	char * ptr, *buffer[2];
 	FILE * database, * fp;
-	unsigned long i,j;
-	unsigned long dlen;
-	FType finger[4], print[4];
-	FType rev_finger[4], rev_print[4];
-	FType * power;
-	char * buffer, *rev_buffer;
 	int tmp;
-
-	if(strcmp(getFileType(op->database), "ex") == 0)
-	{
-		printf("database seems as a reference, set type to zero\r\n");
-		op->type = 0;
-	}
-	else if(strcmp(getFileType(op->database), "fa") == 0)
-	{
-		printf("database seems as a query, set type to non-zero\r\n");
-		op->type = 1;
-	}
-	else
-	{
-		printf("Error: database type not support:%s\r\n", getFileType(op->database));
-		return -1;
-	}
-
+ 
   if(op->length <1 || op->length > 65000) return -1;
+
+	ptr = getFileType(op->database);
+	if(strcmp(ptr, "fa") != 0 && strcmp(ptr, "fasta") != 0)
+	{
+		fprintf(stderr, "Error: database type not support:%s\r\n", ptr);
+		return -2;
+	}
+
   database = fopen(op->database,"r");
   if(database == NULL)
   {
-    printf("Database cannot open:%s\r\n",op->database);
+    fprintf(stderr, "Database cannot open:%s\r\n",op->database);
     return -2;
   }
 
+	printf("=> Parsing database...\r\n");
   fseek(database,0,SEEK_END);
-  dlen = ftell(database);
-  if(dlen < op->length)
-  {
-    fclose(database); database=NULL;
-    printf("Database length (%ld) is too short\r\n",dlen);
-    return -2;
-  }
+
 	if(op->end <= op->begin) op->end = dlen;
 
 	fp = NULL;

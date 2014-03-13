@@ -1,47 +1,44 @@
 //  ******************************************************************//
 //  author: chenp
-//  description: build fingerprint database of the reference
+//  description: sort fingerprint database of the reference
 //  version: 1.0
-//	date: 2014-03-10
+//	date: 2014-03-12
 //  ******************************************************************//
 
 
-#include "index.h"
+#include "sort.h"
 
 #define VERSION "1.0"
-#define PROGRAM "fblra index"
+#define PROGRAM "fblra sort"
+
+
+struct Sort_Options
+{
+};
+
 
 static int print_help()
 {
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
   fprintf(stdout, "  -v(erbose)\r\n");
-  fprintf(stdout, "  -i(nterval) num\r\n");
-  fprintf(stdout, "  -l(ength) num\r\n");
-  fprintf(stdout, "  -b(and) num\r\n");
   fprintf(stdout, "  -r[eference] str\r\n");
-  fprintf(stdout, "  -p(refix) str\r\n");
   fprintf(stdout, "  -d(irectory) str\r\n");
   fprintf(stdout, "  -V(ersion)\r\n");
   return 0;
 }
 
-static void init_Options(struct Index_Options * op)
+static void init_Options(struct Sort_Options * op)
 {
 	op->verbose = 3;
-  op->length = 1000;
-	op->interval = 128;
-	op->band = 10;
-	op->items = 0;
   op->database = NULL;
-  op->prefix = NULL;
 	op->pac = NULL;
-	op->uspt = NULL;
+	op->spt = NULL;
 	op->si = NULL;
 	op->dir = NULL;
 }
 
-static void format_Options(struct Index_Options * op)
+static void format_Options(struct Sort_Options * op)
 { 
 	int len;
 	char * path;
@@ -105,7 +102,7 @@ static void dump_Options(struct Index_Options * op)
 }
 
 
-int build_fingerprint(struct Index_Options * op)
+int sort_fingerprint(struct Index_Options * op)
 {
 	struct Reference ref;
 	struct chromosome * chrptr;
@@ -123,7 +120,6 @@ int build_fingerprint(struct Index_Options * op)
   format_Options(op);
 	fp = database = NULL;
 	buffer = ptr = NULL;
-	cursor = 0;
 
 	ptr = getFileType(op->database);
 	if(strcmp(ptr, "fa") != 0 && strcmp(ptr, "fasta") != 0)
@@ -170,7 +166,6 @@ int build_fingerprint(struct Index_Options * op)
 			fclose(database);
 			return -2;
 		}
-		cursor = 0;
 	}
 
 	while(op->verbose & 0x01)
@@ -216,19 +211,23 @@ int build_fingerprint(struct Index_Options * op)
 		fseek(database, -1, SEEK_CUR);
 		tmp = read2f_util(database, '>', 0x02| 0x01, fp, op->band);
 
-		chrptr->slen = ftell(fp) - cursor;
-		cursor = ftell(fp);
 		if(tmp == -3)		// read band 'N' before '>'
 		{
-			chrptr->slen = chrptr->slen - op->band;
+			chrptr->slen = ftell(fp) - op->band;
+			fseek(database, chrptr->slen, SEEK_SET);
+
 			chrptr->ne = op->band;
 			do { 
 				c = fgetc(database);
 				if(c=='N') chrptr->ne++;
 			} while(c != EOF && c != '>');
-		}
 
-		fprintf(stdout, "\tlen:%d+%d+%d\r\n", chrptr->nb, chrptr->slen, chrptr->ne);
+		}
+		else
+		{
+			chrptr->slen = ftell(fp);
+			chrptr->ne = 0;
+		}
 	}
 
 	if(fp != NULL) fclose(fp);
@@ -341,7 +340,7 @@ int build_fingerprint(struct Index_Options * op)
 				fseek(database, cursor + i, SEEK_SET);
 				if(fread(buffer, 1, op->length, database) != op->length)
 				{
-					fprintf(stderr, "Read File error. Err:%d-EOF:%d\r\n", feof(database), ferror(database));
+					fprintf(stderr, "Read File read. Err:%d-EOF:%d\r\n", feof(database), ferror(database));
 					break;
 				}
 
@@ -398,7 +397,7 @@ int build_fingerprint(struct Index_Options * op)
 }
 
 
-#ifndef _FINGERPRINT_MAIN_C_
+#ifdef _FINGERPRINT_MAIN_C_
 
 int main(int argc, char ** argv)
 {
@@ -430,5 +429,4 @@ int main(int argc, char ** argv)
 }
 
 #endif
-
 
