@@ -26,7 +26,7 @@ static int print_help()
   return 0;
 }
 
-static void init_Options(struct Index_Options * op)
+void init_Index_Options(struct Index_Options * op)
 {
 	op->verbose = 3;
   op->length = 1000;
@@ -123,6 +123,9 @@ int build_fingerprint(struct Index_Options * op)
 	fp = database = NULL;
 	buffer = ptr = NULL;
 	cursor = 0;
+	ref.A = ref.C = ref.G = ref.T = ref.N = 0;
+	ref.seqs = 0;
+	ref.chrom = NULL;
 
 	ptr = getFileType(op->database);
 	if(strcmp(ptr, "fa") != 0 && strcmp(ptr, "fasta") != 0)
@@ -148,11 +151,6 @@ int build_fingerprint(struct Index_Options * op)
 		return -3;
 	}
 
-	num = 32;
-	ref.chrom = (struct chromosome *) malloc(sizeof(struct chromosome)*num);
-	ref.A = ref.C = ref.G = ref.T = ref.N = 0;
-	ref.seqs = 0;
-
 	fprintf(stdout, "===> Dump parameters...%d\r\n", op->verbose & 0x80);
 	if(op->verbose & 0x80)
 	{
@@ -169,6 +167,9 @@ int build_fingerprint(struct Index_Options * op)
 			fclose(database); database = NULL;
 			return -2;
 		}
+		
+		num = 32;
+		ref.chrom = (struct chromosome *) malloc(sizeof(struct chromosome)*num);
 	}
 
 	while(op->verbose & 0x01)
@@ -203,16 +204,17 @@ int build_fingerprint(struct Index_Options * op)
 		}
 
 		if(read2f_util(database, '\n', 0, NULL, 0) < 0) break;
-
+		
 		lc = 'N'; tmp = 0;
 		chrptr->pie[chrptr->pnum].nb = 0;
 		chrptr->pie[chrptr->pnum].plen = 0;
-		while(c=fgetc(database), c != '>' && c != '\0')
+		while(c=fgetc(database), c != '>' && c != EOF)
 		{
 			if(c == 'N')
 			{
 				if(lc == 'N') tmp++;
 				lc = c;
+				ref.N++;
 
 				if(chrptr->pie[chrptr->pnum].plen == 0)
 				{
@@ -222,15 +224,14 @@ int build_fingerprint(struct Index_Options * op)
 				{
 					if(tmp >= op->band)
 					{
-						tmp = 0;
-
 						if(chrptr->pnum == (pnum-1))
 						{
 							pnum += 8;
 							chrptr->pie = (struct piece *) realloc(chrptr->pie, sizeof(struct piece)*pnum);
 						}
+						tmp = 1;
 						chrptr->pnum++;
-						chrptr->pie[chrptr->pnum].nb = 0;
+						chrptr->pie[chrptr->pnum].nb = 1;
 						chrptr->pie[chrptr->pnum].plen = 0;
 					}
 					else
@@ -264,21 +265,22 @@ int build_fingerprint(struct Index_Options * op)
 			}
 		}
 
-		if(c == '>')
+		chrptr->pnum++;
+
+		for(tmp=0; tmp<chrptr->pnum; tmp++)
 		{
-			for(tmp=0; tmp<chrptr->pnum; tmp++)
-				chrptr->slen += chrptr->pie[chrptr->pnum].nb + chrptr->pie[chrptr->pnum].plen;
-			
-			fprintf(stdout, "\t%d\r\n", chrptr->slen);
-			continue;
+			chrptr->slen += chrptr->pie[tmp].plen + chrptr->pie[tmp].nb;
 		}
-		else // finish all seqs or read unexpected char
+		
+		fprintf(stdout, "\t%d\r\n", chrptr->slen);
+
+		if(c != '>') // finish all seqs or read unexpected char
 		{
 			fclose(fp);
 			fclose(database);
 			fp = database = NULL;
 
-			fp = fopen(op->si, "wb");
+			fp = fopen(op->si, "w");
 			if(fp == NULL)
 			{
 				fprintf(stderr, "Can create file:%s \r\n", op->si);
@@ -286,18 +288,22 @@ int build_fingerprint(struct Index_Options * op)
 				return -2;
 			}
 
-			fwrite(&ref, sizeof(ref), 1, fp);
-			fwrite(ref.chrom, sizeof(ref.chrom), ref.seqs, fp);
+			fwrite(&ref, sizeof(struct Reference), 1, fp);
+			fwrite(ref.chrom, sizeof(struct chromosome), ref.seqs, fp);
 			for(tmp=0; tmp<ref.seqs; tmp++)
 			{
-				fwrite(ref.chrom[tmp].sn, 1, ref.chrom[tmp].nlen, fp);
-				fwrite(ref.chrom[tmp].pie, sizeof(struct piece), ref.chrom[tmp].pnum, fp);
-
-				free(ref.chrom[tmp].sn);
-				free(ref.chrom[tmp].pie);
+				chrptr = ref.chrom + tmp;
+				fwrite(chrptr->pie, sizeof(struct piece), chrptr->pnum, fp);
+				fwrite(chrptr->sn, sizeof(char), chrptr->nlen, fp);
+				free(chrptr->pie);
+				free(chrptr->sn);
 			}
+
+			free(ref.chrom);
 			fclose(fp);
 			fp = NULL;
+
+			fprintf(stdout, "> N:%d A:%d C:%d G:%d T:%d \r\n", ref.N, ref.A, ref.C, ref.G, ref.T);
 			break;
 		}
 	}
@@ -305,47 +311,45 @@ int build_fingerprint(struct Index_Options * op)
 	fprintf(stdout, "===> Generate uspt file...%d\r\n", op->verbose & 0x02);
 	if(op->verbose & 0x02)
 	{
-		fp = fopen(op->si, "rb");
+		fp = fopen(op->si, "r");
 		if(fp == NULL)
 		{
 			fprintf(stderr, "File cannot open:%s\r\n", op->si);
 			return -2;
 		}
 
-		tmp = fread(&ref, sizeof(ref), 1, fp);
-		if(tmp < 0)
+		if(fread(&ref, sizeof(struct Reference), 1, fp) != 1)
 		{
-			fprintf(stderr, "File read error from SI file-1\r\n");
+			fprintf(stderr, "SI File read error\r\n");
 			return -2;
 		}
 
 		ref.chrom = (struct chromosome *) malloc(ref.seqs*sizeof(struct chromosome));
-		tmp = fread(ref.chrom, sizeof(struct chromosome), ref.seqs, fp);
-		if(tmp < 0)
+		if(fread(ref.chrom, sizeof(struct chromosome), ref.seqs, fp) != ref.seqs)
 		{
-			fprintf(stderr, "File read error from SI file-2\r\n");
+			fprintf(stderr, "SI File read error\r\n");
 			return -2;
 		}
 
 		for(tmp=0; tmp<ref.seqs; tmp++)
 		{
-			ref.chrom[tmp].sn = (char *)malloc(ref.chrom[tmp].nlen);
-			ref.chrom[tmp].pie = (struct piece *)malloc(sizeof(struct piece)*ref.chrom[tmp].pnum);
+			chrptr = ref.chrom + tmp;
+			chrptr->pie = (struct piece *)malloc(sizeof(struct piece)*chrptr->pnum);
+			chrptr->sn = (char *)malloc(chrptr->nlen + 1);
+			chrptr->sn[chrptr->nlen] = 0;
 
-			pnum = fread(ref.chrom[tmp].sn, 1, ref.chrom[tmp].nlen, fp);
-			if(pnum < 0)
+			if(fread(chrptr->pie, sizeof(struct piece), chrptr->pnum, fp) != chrptr->pnum)
 			{
-				fprintf(stderr, "File read error from SI file-3\r\n");
+				fprintf(stderr, "SI File read error-3(EOF:%d, ERR:%d)\r\n", feof(fp), ferror(fp));
 				return -2;
 			}
-
-			pnum = fread(ref.chrom[tmp].pie, sizeof(struct piece), ref.chrom[tmp].pnum, fp);
-			if(pnum < 0)
+			if(fread(chrptr->sn, 1, chrptr->nlen, fp) != chrptr->nlen)
 			{
-				fprintf(stderr, "File read error from SI file-4\r\n");
+				fprintf(stderr, "SI File read error-4(EOF:%d, ERR:%d)\r\n", feof(fp), ferror(fp));
 				return -2;
 			}
 		}
+
 		fclose(fp);
 
 	  database = fopen(op->pac, "r");
@@ -375,18 +379,18 @@ int build_fingerprint(struct Index_Options * op)
 		for(tmp=0; tmp<ref.seqs; tmp++)
 		{
 			chrptr = ref.chrom + tmp;
-			for(pnum=0; pnum < chrptr->pnum; pnum++)
+			for(pnum=0; pnum<chrptr->pnum; pnum++)
 			{
-				if(chrptr->pie[pnum].plen <= op->length)
+				if(chrptr->pie[pnum].plen < op->length)
 				{
-					cursor += chrptr->pie[pnum].plen + chrptr->pie[pnum].nb;
+					cursor += chrptr->pie[pnum].plen;;
 					continue;
 				}
 
-				for(i=0; i<(chrptr->pie[pnum].plen-op->length); i+=op->interval)
+				for(i=0; i<=(chrptr->pie[pnum].plen-op->length); i+=op->interval)
 				{
 					// cursor represents the beginning postion of current piece
-					fseek(database, cursor + chrptr->pie[pnum].nb + i, SEEK_SET);
+					fseek(database, cursor + i, SEEK_SET);
 					if(fread(buffer, 1, op->length, database) != op->length)
 					{
 						fprintf(stderr, "Read File error. Err:%d-EOF:%d\r\n", feof(database), ferror(database));
@@ -423,20 +427,21 @@ int build_fingerprint(struct Index_Options * op)
 					print[7] -= finger[7]*op->length;
 	
 					//store fingerprint here
-					j = cursor + chrptr->pie[pnum].nb + i;
+					j = cursor + i;
 					fwrite(&j, sizeof(j), 1, fp);
 					fwrite(print, sizeof(FType), 8, fp);
 					op->items++;
 
 				} // for(i=0; i<X; i+=op->interval)
 
-				cursor += chrptr->pie[pnum].plen + chrptr->pie[pnum].nb;
+				cursor += chrptr->pie[pnum].plen;
 			} // for(pnum=0; pnum < chrptr->pnum; pnum++)
 		} // for(tmp=0; tmp<ref.seqs; tmp++)
 
 		fseek(database, 0, SEEK_SET);
 		fwrite(&op->items, sizeof(op->items), 1, fp);
 
+		fprintf(stdout, "> Built %d fingprinters\r\n", op->items);
 
 		free(buffer);
 		fclose(fp);
@@ -462,7 +467,7 @@ int main(int argc, char ** argv)
   char c;
   int options;
 
-  init_Options(&op);
+  init_Index_Options(&op);
   options = 0;
   while( (c=getopt(argc,argv,"i:l:b:r:p:d:v:V")) >=0)
   {
