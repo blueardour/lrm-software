@@ -7,7 +7,7 @@ CXXFLAGS= $(CFLAGS)
 AR=     ar
 LIBS= utils.o
 
-all: fingerprint lookup index
+all: index sort
 
 .SUFFIXES:.c .o .cc
 
@@ -16,13 +16,13 @@ all: fingerprint lookup index
 .cc.o:
 	    $(CXX) -c $(CXXFLAGS) $< -o $@
 
-fingerprint: fingerprint.o $(LIBS)
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
-
 lookup: lookup.o $(LIBS)
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
 index: index.o $(LIBS)
+	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+
+sort: sort.o $(LIBS)
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
 LRsim: LRsim.o $(LIBS)

@@ -111,6 +111,7 @@ int build_fingerprint(struct Index_Options * op)
 	struct chromosome * chrptr;
 	FILE * database, * fp;
 	FType finger[8], print[8];
+	FType max[8], min[8];
 	u32 i, j;
 	u32 cursor;
 	char * buffer, * ptr;
@@ -195,6 +196,7 @@ int build_fingerprint(struct Index_Options * op)
 		if(tmp < 0 || tmp > 50)
 		{
 			fprintf(stderr, "Failed to get ref name, err:%d\r\n", tmp);
+			op->verbose = 0;
 			break;
 		}
 		else
@@ -203,7 +205,11 @@ int build_fingerprint(struct Index_Options * op)
 			chrptr->nlen = strlen(chrptr->sn);
 		}
 
-		if(read2f_util(database, '\n', 0, NULL, 0) < 0) break;
+		if(read2f_util(database, '\n', 0, NULL, 0) < 0)
+		{
+			op->verbose = 0;
+			break;
+		}
 		
 		lc = 'N'; tmp = 0;
 		chrptr->pie[chrptr->pnum].nb = 0;
@@ -261,6 +267,7 @@ int build_fingerprint(struct Index_Options * op)
 			else
 			{
 				fprintf(stderr, "Unexpected char(%d) when read seq[%d] \r\n", c, ref.seqs);
+				op->verbose = 0;
 				break;
 			}
 		}
@@ -370,8 +377,12 @@ int build_fingerprint(struct Index_Options * op)
 		buffer = (char *) malloc(op->length);
 		cursor = 0;
 		op->items = 0;
+		max[0]=max[1]=max[2]=max[3]=max[4]=max[5]=max[6]=max[7]=0;
+		min[0]=min[1]=min[2]=min[3]=min[4]=min[5]=min[6]=min[7]=-1;
 
 		fwrite(&op->items, sizeof(op->items), 1, fp);
+		fwrite(max, sizeof(FType), 8, fp);
+		fwrite(min, sizeof(FType), 8, fp);
 		fwrite(&op->length, sizeof(op->length), 1, fp);
 		fwrite(&op->interval, sizeof(op->interval), 1, fp);
 		fwrite(&op->band, sizeof(op->band), 1, fp);
@@ -425,6 +436,12 @@ int build_fingerprint(struct Index_Options * op)
 					print[5] -= finger[5]*op->length;
 					print[6] -= finger[6]*op->length;
 					print[7] -= finger[7]*op->length;
+					
+					for(j=0; j<8; j++)
+					{
+						if(max[j] < print[j]) max[j] = print[j];
+						if(min[j] > print[j]) min[j] = print[j];
+					}
 	
 					//store fingerprint here
 					j = cursor + i;
@@ -438,15 +455,22 @@ int build_fingerprint(struct Index_Options * op)
 			} // for(pnum=0; pnum < chrptr->pnum; pnum++)
 		} // for(tmp=0; tmp<ref.seqs; tmp++)
 
-		fseek(database, 0, SEEK_SET);
+		// re-write info
+		cursor = ftell(fp);
+		fseek(fp, 0, SEEK_SET);
 		fwrite(&op->items, sizeof(op->items), 1, fp);
+		fwrite(max, sizeof(FType), 8, fp);
+		fwrite(min, sizeof(FType), 8, fp);
+		fseek(fp, 0, SEEK_END);
+		if(cursor != ftell(fp))
+			fprintf(stderr, "Re-write uspt file error\r\n");
+		
+		fclose(fp);
+		fclose(database);
 
 		fprintf(stdout, "> Built %d fingprinters\r\n", op->items);
 
 		free(buffer);
-		fclose(fp);
-		fclose(database);
-
 		for(tmp=0; tmp<ref.seqs; tmp++)
 		{
 			free(ref.chrom[tmp].sn);

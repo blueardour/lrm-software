@@ -15,9 +15,10 @@
 #include <stdio.h>
 #include "utils.h"
 
-#define VERSION "LRsim(ver 4.1)"
+#define VERSION "1.1"
+#define PROGRAM "LRsim"
 
-struct Options
+struct LRS_Options
 {
   u08 error;				// percent
 	u08 variation;		// 0:variation and indles; 1:variation only
@@ -36,12 +37,19 @@ struct Indels
 
 int print_help()
 {
-  printf("%s:\r\n", VERSION);
-  printf("LRsim -V(ersion) | [-v(ariation)] -a(mount) num -l(ength) num -e(rror) num -d(atabase) str [-f(ilename) str]\r\n");
+  printf("%s ", PROGRAM);
+  printf("ver (%s):\r\n", VERSION);
+  printf("	-V(ersion)");
+  printf("	-v(ariation)";
+  printf("	-a(mount)");
+  printf("	-l(ength) num");
+  printf("	-e(rror) num");
+  printf("	-d(atabase)");
+  printf("	-f(ilename) str");
   return 0;
 }
 
-void init_Options(struct Options * op)
+void init_LRS_Options(struct Options * op)
 {
   op->length = 1000;
   op->error = 3;
@@ -51,7 +59,7 @@ void init_Options(struct Options * op)
 	op->variation = 0;
 }
 
-void format_Options(struct Options * op)
+void format_Options(struct LRS_Options * op)
 { 
   if(op->filename == NULL)
   {
@@ -61,12 +69,12 @@ void format_Options(struct Options * op)
   }
 }
 
-void dump_Options(struct Options * op)
+void dump_Options(struct LRS_Options * op)
 { 
   printf("A%d-L%d-E%d-D(%s)\r\n",op->amount,op->length,op->error,op->database);
 }
 
-int generate_queries(struct Options * op)
+int generate_queries(struct LRS_Options * op)
 {
   FILE * database, * fp;
   u32 i,j,k;
