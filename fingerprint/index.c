@@ -247,9 +247,11 @@ int build_fingerprint(struct Index_Options * op)
 					}
 				}
 			}
-			else if(c=='A' || c=='C'|| c=='G' || c=='T')
+			else if(c=='A' || c=='C'|| c=='G' || c=='T' || c=='M')
 			{
 				tmp = 0;
+
+				if(c == 'M') { if(lrand48() & 1) c = 'A'; else c = 'C'; }
 				lc = c;
 
 				fputc(c, fp);
