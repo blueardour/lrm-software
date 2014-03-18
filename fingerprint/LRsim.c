@@ -13,19 +13,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "utils.h"
+#include <time.h>
 
-#define VERSION "1.1"
+#include "utils.h"
+#include "fingerprint.h"
+
+#define VERSION "1.0"
 #define PROGRAM "LRsim"
 
 struct LRS_Options
 {
   u08 error;				// percent
-	u08 variation;		// 0:variation and indles; 1:variation only
   u32 length;
   u32 amount;
   char * database;  // filename
   char * filename;
+	char * si;
+	char * pac;
 };
 
 struct Indels
@@ -39,145 +43,187 @@ int print_help()
 {
   printf("%s ", PROGRAM);
   printf("ver (%s):\r\n", VERSION);
-  printf("	-V(ersion)");
-  printf("	-v(ariation)";
-  printf("	-a(mount)");
-  printf("	-l(ength) num");
-  printf("	-e(rror) num");
-  printf("	-d(atabase)");
-  printf("	-f(ilename) str");
+  printf("	-V(ersion)\r\n");
+  printf("	-a(mount)\r\n");
+  printf("	-l(ength) num\r\n");
+  printf("	-e(rror) num\r\n");
+  printf("	-d(atabase)\r\n");
+  printf("	-f(ilename) str\r\n");
   return 0;
 }
 
-void init_LRS_Options(struct Options * op)
+void init_LRS_Options(struct LRS_Options * op)
 {
   op->length = 1000;
   op->error = 3;
   op->amount = 10000;
   op->database = NULL;
   op->filename = NULL;
-	op->variation = 0;
+	op->si = NULL;
+	op->pac = NULL;
 }
 
 void format_Options(struct LRS_Options * op)
 { 
-  if(op->filename == NULL)
-  {
-    op->filename = (char *)malloc(200*sizeof(char));
-    memset(op->filename,0,200*sizeof(char));
-    sprintf(op->filename,"A%d-L%d-E%d-%s",op->amount,op->length,op->error,getFileName(op->database));
-  }
+	int len;
+	len = strlen(op->database);
+	op->si = (char *)malloc(len+6);
+	op->pac = (char *)malloc(len+6);
+
+	strcpy(op->si, op->database);
+	strcpy(op->pac, op->database);
+	strcat(op->si, ".si");
+	strcat(op->pac, ".pac");
 }
 
 void dump_Options(struct LRS_Options * op)
 { 
-  printf("A%d-L%d-E%d-D(%s)\r\n",op->amount,op->length,op->error,op->database);
 }
 
 int generate_queries(struct LRS_Options * op)
 {
-  FILE * database, * fp;
-  u32 i,j,k;
-  u32 dlen, position, number;
-  u32 count;
+	struct Reference ref;
+	struct chromosome * chrptr;
 	struct Indels * gaps;
-  char *string, *buffer;
+  FILE * database, * fp;
+	int tmp, loop, chr, pie;
+	time_t tv;
+  u32 i, j, k, l;
+  u32 position, alen, cursor;
+  char * buffer, * string;
   char c;
 
-  if(op->amount <1 || op->length <1) return -1;
+  format_Options(op);
 
-  database = fopen(op->database,"r");
-  if(database == NULL)
-  {
-    printf("Database cannot open:%s\r\n",op->database);
-    return -2;
-  }
-
-  fseek(database,0,SEEK_END);
-  dlen = ftell(database);
-  if(dlen < 1000 || dlen < op->length*2)
-  {
-    fclose(database); database=NULL;
-    printf("Database length (%ld) is too short\r\n",dlen);
-    return -2;
-  }
-
-  fp = fopen(op->filename,"w");
+  fp = fopen(op->si, "r");
   if(fp == NULL)
   {
-    printf("Can create file:%s\r\n",op->filename);
+    printf("Database cannot open:%s\r\n", op->si);
     return -2;
   }
 
-	number = op->length+op->length*op->error/100;
-  string = (char *)malloc(op->length);
-  buffer = (char *)malloc(op->length+number);
-	gaps = (struct Indels *) malloc(number/5*sizeof(struct Indels));
-	c = 0;
+	if(fread(&ref, sizeof(struct Reference), 1, fp) != 1) return -3;
+	ref.chrom = (struct chromosome *) malloc(sizeof(struct chromosome)*ref.seqs);
+	if(fread(ref.chrom, sizeof(struct chromosome), ref.seqs, fp) != ref.seqs) return -3;
+	for(tmp=0; tmp<ref.seqs; tmp++)
+	{
+		chrptr = ref.chrom + tmp;
+		chrptr->pie = (struct piece *) malloc(sizeof(struct chromosome)*chrptr->pnum);
+		chrptr->sn = (char *) malloc(sizeof(char)*chrptr->nlen);
+		if(fread(chrptr->pie, sizeof(struct piece), chrptr->pnum, fp) != chrptr->pnum) return -3;
+		if(fread(chrptr->sn, sizeof(char), chrptr->nlen, fp) != chrptr->nlen) return -3;
+	}
+	fclose(fp);
+
+  database = fopen(op->pac, "r");
+  if(database == NULL)
+  {
+    printf("Database cannot open:%s\r\n", op->pac);
+    return -2;
+  }
+
+  fp = fopen(op->filename, "w");
+  if(fp == NULL)
+  {
+    printf("Can create file:%s\r\n", op->filename);
+    return -2;
+  }
+
+	alen = op->length * op->error / 100;
+  buffer = (char *)malloc(op->length);
+  string = (char *)malloc(op->length + alen);
+	gaps = (struct Indels *) malloc(sizeof(struct Indels) * alen / 5);
+	c = 'A';
 
   for(i=0; i<op->amount; i++)
   {
-		//srand(stime());
-		position = rand()%(dlen-op->length-op->length/100);
-		if(fseek(database,position,SEEK_SET) == -1)
+		stime(&tv);
+		srand(tv);
+		chr = lrand48()%ref.seqs;
+		chrptr = ref.chrom + chr;
+
+		stime(&tv);
+		srand(tv);
+		pie = lrand48()%chrptr->pnum;
+
+		if(chrptr->pie[pie].plen <= op->length)
 		{
-			printf("Fseek Error\r\n");
-			return -4;
+			i++;
+			continue;
 		}
 
-		for(j=0; j<op->length; j++)
+		stime(&tv);
+		srand(tv);
+		position = lrand48()%(chrptr->pie[pie].plen - op->length);
+
+		cursor = 0;
+		for(tmp=0; tmp<chr; tmp++)
 		{
-			c=getc(database);
-			if(c=='A' || c== 'C' || c=='G' || c== 'T') string[j] = c;
-			else
+			chrptr = ref.chrom + tmp;
+			for(loop=0; loop<chrptr->pnum; loop++)
 			{
-				printf("Unexpected char:%d at pos:%ld\r\n", c, position+j);
-				return -3;
+				cursor += chrptr->pie[loop].plen;
 			}
 		}
 
-		if(op->variation == 0) //80% in errors are varations
-			number = op->length*op->error*4/100/5;
-		else
-			number = op->length*op->error/100;
+		chrptr = ref.chrom + chr;
+		for(loop=0; loop<pie; loop++)
+			cursor += chrptr->pie[loop].plen;
 
-		for(j=0; j<number; j++)
+		if(fseek(database, cursor + position, SEEK_SET) != 0) return -4;
+
+		for(j=0; j<op->length; j++)
 		{
-			//srand(stime());
-			count = rand()%op->length;
-			if(count%4 == 0) c = 'T';
-			if(count%4 == 1) c = 'G';
-			if(count%4 == 2) c = 'C';
-			if(count%4 == 3) c = 'A';
-			if(count>=0 && count<op->length) string[count] = c;
+			c= getc(database);
+			if(c=='A' || c== 'C' || c=='G' || c== 'T') buffer[j] = c;
+			else
+			{
+				printf("Unexpected char:%d \r\n", c);
+				return -2;
+			}
 		}
 
-		if(op->variation == 0) // 20% in errors are indels errors: additions or deletions
-			number = op->length*op->error/100/5;
-		else
-			number = 0;
-
-		for(j=0; j<number; j++)
+		// variation
+		for(j=0; j<alen*4/5; j++)
 		{
-			//srand(stime());
-			gaps[j].pos = rand()% op->length; // gap position
+			stime(&tv);
+			srand(tv);
+			switch(lrand48()%4)
+			{
+				case 0: c= 'A'; break;
+				case 1: c= 'C'; break;
+				case 2: c= 'G'; break;
+				case 3: c= 'T'; break;
+			}
+
+			stime(&tv);
+			srand(tv);
+			string[lrand48()%op->length] = c;
+		}
+
+		for(j=0; j<alen/5; j++)
+		{
+			stime(&tv);
+			srand(tv);
+			gaps[j].pos = lrand48()% op->length; // gap position
 
 			gaps[j].len = 1;  // gap len
 			gaps[j].type = 0; // addition:non-zero, deletion:zero
 			do {
-				//srand(stime());
-				count = rand()%20;
-				if(count<=6 && count>=0)
+				stime(&tv);
+				srand(tv);
+				tmp = rand()%20;
+				if(tmp<=6 && tmp>=0)
 				{
 					break;
 				}
-				else if(count>=7 && count <= 13)
+				else if(tmp>=7 && tmp<=13)
 				{
 					gaps[j].type = ! gaps[j].type;
 					break;
 				}
 				gaps[j].len++;
-				if(gaps[j].len > number)
+				if(gaps[j].len > alen/5)
 				{
 					gaps[j].type = 0;
 					break;
@@ -187,9 +233,9 @@ int generate_queries(struct LRS_Options * op)
 		}
 
 		// final string 
-		for(count=j=0; j<op->length;)
+		for(j=l=0; j<op->length;)
 		{
-			for(k=0;k<number;k++)
+			for(k=0; k<alen/5; k++)
 			{
 				if(gaps[k].pos == j)
 				{
@@ -197,18 +243,25 @@ int generate_queries(struct LRS_Options * op)
 						j+=gaps[k].len;
 					else
 					{
-						while(gaps[k].len--) buffer[count++] = string[op->length-1-gaps[k].len];
-						buffer[count++] = string[j++];
+						string[l++] = buffer[j++];
+						while(gaps[k].len--) string[l++] = buffer[op->length-1-gaps[k].len];
 					}
 					break;
 				}
 			}
 
-			if(k == number) buffer[count++] = string[j++];
+			if(k == alen/5) string[l++] = buffer[j++];
 		}
-		buffer[count] = 0;
+		if(l >= (op->length+alen))
+		{
+			i--;
+			fprintf(stderr, "Addition too long\r\n");
+			continue;
+		}
+		else string[l] = 0;
 
-		fprintf(fp,">%s.[%ld].[%ld].[%d] length:%ld\r\n%s\r\n", getFileName(op->database),i,position,op->error,count,buffer);
+		fprintf(fp, ">%s-%d-%d %d-%d-%d-len:%d\r\n%s\r\n", getFileName(op->database), i, cursor + position, \
+								chr, pie, position, l, string);
 		
   }
 
@@ -225,29 +278,26 @@ int generate_queries(struct LRS_Options * op)
 
 int main(int argc, char ** argv)
 {
-  struct Options op;
+  struct LRS_Options op;
   char c;
   int options;
 
-  init_Options(&op);
+  init_LRS_Options(&op);
   options = 0;
-  while( (c=getopt(argc,argv,"l:a:d:e:f:vV")) >=0)
+  while( (c=getopt(argc,argv,"l:a:d:e:f:V")) >=0)
   {
     switch(c)
     {
       case 'l':options++; op.length = atoi(optarg); break;
       case 'a':options++; op.amount = atoi(optarg); break;
       case 'e':options++; op.error  = atoi(optarg); break;
-      case 'f':op.filename = optarg; break;
+      case 'f':options++; op.filename = optarg; break;
       case 'd':options++; op.database = optarg; break;
-			case 'v':op.variation = 1; break;
 			case 'V':printf("%s\r\n", VERSION); return 0;
       default: return print_help();
     }
   }
-  if(options < 4) return print_help();
-  format_Options(&op);
-  //dump_Options(&op);
+  if(options < 5) return print_help();
   return generate_queries(&op);
 }
 
