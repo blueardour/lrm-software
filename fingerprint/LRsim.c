@@ -13,7 +13,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
 
 #include "utils.h"
 #include "fingerprint.h"
@@ -26,6 +25,7 @@ struct LRS_Options
   u08 error;				// percent
   u32 length;
   u32 amount;
+	float vr;
   char * database;  // filename
   char * filename;
 	char * si;
@@ -56,6 +56,7 @@ void init_LRS_Options(struct LRS_Options * op)
 {
   op->length = 1000;
   op->error = 3;
+	op->vr = 0.8;
   op->amount = 10000;
   op->database = NULL;
   op->filename = NULL;
@@ -132,29 +133,22 @@ int generate_queries(struct LRS_Options * op)
 	alen = op->length * op->error / 100;
   buffer = (char *)malloc(op->length);
   string = (char *)malloc(op->length + alen);
-	gaps = (struct Indels *) malloc(sizeof(struct Indels) * alen / 5);
+	gaps = (struct Indels *) malloc(sizeof(struct Indels) * (u32)(alen*(1-op->vr)));
 	c = 'A';
 
   for(i=0; i<op->amount; i++)
   {
-		stime(&tv);
-		srand(tv);
-		chr = lrand48()%ref.seqs;
+		chr = newRand(ref.seqs);
 		chrptr = ref.chrom + chr;
 
-		stime(&tv);
-		srand(tv);
-		pie = lrand48()%chrptr->pnum;
-
+		pie = newRand(chrptr->pnum);
 		if(chrptr->pie[pie].plen <= op->length)
 		{
 			i++;
 			continue;
 		}
 
-		stime(&tv);
-		srand(tv);
-		position = lrand48()%(chrptr->pie[pie].plen - op->length);
+		position = newRand(chrptr->pie[pie].plen - op->length);
 
 		cursor = 0;
 		for(tmp=0; tmp<chr; tmp++)
@@ -183,57 +177,48 @@ int generate_queries(struct LRS_Options * op)
 			}
 		}
 
-		// variation
-		for(j=0; j<alen*4/5; j++)
+		for(j=0; j<alen; j++)
 		{
-			stime(&tv);
-			srand(tv);
-			switch(lrand48()%4)
+			if(j < (u32)(alen*op->vr))
 			{
-				case 0: c= 'A'; break;
-				case 1: c= 'C'; break;
-				case 2: c= 'G'; break;
-				case 3: c= 'T'; break;
+				switch(newRand(4))
+				{
+					case 0: c= 'A'; break;
+					case 1: c= 'C'; break;
+					case 2: c= 'G'; break;
+					case 3: c= 'T'; break;
+				}
+				buffer[newRand(op->length)] = c;
 			}
-
-			stime(&tv);
-			srand(tv);
-			string[lrand48()%op->length] = c;
-		}
-
-		for(j=0; j<alen/5; j++)
-		{
-			stime(&tv);
-			srand(tv);
-			gaps[j].pos = lrand48()% op->length; // gap position
-
-			gaps[j].len = 1;  // gap len
-			gaps[j].type = 0; // addition:non-zero, deletion:zero
-			do {
-				stime(&tv);
-				srand(tv);
-				tmp = rand()%20;
-				if(tmp<=6 && tmp>=0)
-				{
-					break;
-				}
-				else if(tmp>=7 && tmp<=13)
-				{
-					gaps[j].type = ! gaps[j].type;
-					break;
-				}
-				gaps[j].len++;
-				if(gaps[j].len > alen/5)
-				{
-					gaps[j].type = 0;
-					break;
-				}
-				else gaps[j].type = ! gaps[j].type;
-			} while(1);
+			else
+			{
+				gaps[j].pos = newRand(op->length);
+				gaps[j].len = 1;
+				gaps[j].type = 0; // addition:non-zero, deletion:zero
+				do {
+					tmp = newRand(20);
+					if(tmp<=6 && tmp>=0)
+					{
+						break;
+					}
+					else if(tmp>=7 && tmp<=13)
+					{
+						gaps[j].type = ! gaps[j].type;
+						break;
+					}
+					gaps[j].len++;
+					if(gaps[j].len > (u32)alen*(1-op->vr))
+					{
+						gaps[j].type = 0;
+						break;
+					}
+					else gaps[j].type = ! gaps[j].type;
+				} while(1);
+			}
 		}
 
 		// final string 
-		for(j=l=0; j<op->length;)
+		for(j=l=0; j<op->length; j=j)
 		{
 			for(k=0; k<alen/5; k++)
 			{
@@ -252,13 +237,6 @@ int generate_queries(struct LRS_Options * op)
 
 			if(k == alen/5) string[l++] = buffer[j++];
 		}
-		if(l >= (op->length+alen))
-		{
-			i--;
-			fprintf(stderr, "Addition too long\r\n");
-			continue;
-		}
-		else string[l] = 0;
 
 		fprintf(fp, ">%s-%d-%d %d-%d-%d-len:%d\r\n%s\r\n", getFileName(op->database), i, cursor + position, \
 								chr, pie, position, l, string);

@@ -247,11 +247,20 @@ int build_fingerprint(struct Index_Options * op)
 					}
 				}
 			}
-			else if(c=='A' || c=='C'|| c=='G' || c=='T' || c=='M')
+			else if(c >= 'A' && c <= 'Z')
 			{
-				tmp = 0;
+				if(c !='A' && c != 'C' && c!= 'G' && c!= 'T')
+				{
+					switch(lrand48() & 3)
+					{
+						case 0: c = 'A'; break;
+						case 1: c = 'C'; break;
+						case 2: c = 'G'; break;
+						case 3: c = 'T'; break;
+					}
+				}
 
-				if(c == 'M') { if(lrand48() & 1) c = 'A'; else c = 'C'; }
+				tmp = 0;
 				lc = c;
 
 				fputc(c, fp);
@@ -268,7 +277,7 @@ int build_fingerprint(struct Index_Options * op)
 			}
 			else
 			{
-				fprintf(stderr, "Unexpected char(%d) when read seq[%d] \r\n", c, ref.seqs);
+				fprintf(stderr, "Unexpected char(%c) when read seq[%d] \r\n", c, ref.seqs);
 				op->verbose = 0;
 				break;
 			}

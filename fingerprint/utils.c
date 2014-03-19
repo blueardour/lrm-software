@@ -8,6 +8,15 @@
 
 #include "utils.h"
 
+u32 newRand(u32 range)
+{
+	static struct timeval tv;
+	gettimeofday(&tv);
+	srandom(tv.tv_usec);
+	return  (u32) (random()/(RAND_MAX+1.0) * range);
+}
+
+
 char * getFileName(const char * FilePath)
 {
   char * filename;

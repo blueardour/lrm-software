@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 #include "fingerprint.h"
 
@@ -20,5 +21,6 @@ char * getFileType(const char * FilePath);
 char * getFilePath(const char * FilePath);
 
 int read2f_util(FILE *, char, u08, FILE *, int);
+u32 newRand(u32 range);
 
 #endif
