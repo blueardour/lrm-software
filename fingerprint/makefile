@@ -25,9 +25,6 @@ index: index.o $(LIBS)
 sort: sort.o $(LIBS)
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
-LRsim: LRsim.o $(LIBS)
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
-
 dump: dump.o $(LIBS)
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
