@@ -26,15 +26,16 @@ struct Reference
   struct chromosome * chrom;
 };
 
-struct position
+struct Fingerprint
 {
 	u32 pos;
+	FType print[8];
 };
 
-struct fingerprint
+struct Differ
 {
-	struct position pos;
-	FType print[4];
+	u32 pos;
+	FType diff;
 };
 
 #endif

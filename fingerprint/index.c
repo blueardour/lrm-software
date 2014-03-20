@@ -108,13 +108,13 @@ static void dump_Options(struct Index_Options * op)
 int build_fingerprint(struct Index_Options * op)
 {
 	struct Reference ref;
+	struct Fingerprint pt, lpt, spt;
 	struct chromosome * chrptr;
 	FILE * database, * fp;
-	FType finger[8], print[8];
-	FType max[8], min[8];
+	FType finger[8];
 	u32 i, j;
-	u32 cursor;
-	char * buffer, * ptr;
+	u32 cursor, position;
+	char * buffer;
 	int tmp, num, pnum;
 	char c, lc;
 	
@@ -122,35 +122,11 @@ int build_fingerprint(struct Index_Options * op)
 
   format_Options(op);
 	fp = database = NULL;
-	buffer = ptr = NULL;
+	buffer = NULL;
 	cursor = 0;
 	ref.A = ref.C = ref.G = ref.T = ref.N = 0;
 	ref.seqs = 0;
 	ref.chrom = NULL;
-
-	ptr = getFileType(op->database);
-	if(strcmp(ptr, "fa") != 0 && strcmp(ptr, "fasta") != 0)
-	{
-		fprintf(stderr, "Error: database type not support:%s\r\n", ptr);
-		return -2;
-	}
-
-  database = fopen(op->database,"r");
-  if(database == NULL)
-  {
-    fprintf(stderr, "Database cannot open:%s\r\n",op->database);
-    return -2;
-  }
-
-	fprintf(stdout, "=> Parsing database:\r\n");
-  fseek(database, 0, SEEK_SET);
-	if(read2f_util(database, '>', 0, NULL, 0) < 0)
-	{
-		fprintf(stderr, "Error fa/fasta file format \r\n");
-		fclose(fp);
-		fclose(database);
-		return -3;
-	}
 
 	fprintf(stdout, "===> Dump parameters...%d\r\n", op->verbose & 0x80);
 	if(op->verbose & 0x80)
@@ -161,6 +137,30 @@ int build_fingerprint(struct Index_Options * op)
 	fprintf(stdout, "===> Generate PAC/SI file...%d\r\n", op->verbose & 0x01);
 	if(op->verbose & 0x01)
 	{
+		buffer = getFileType(op->database);
+		if(strcmp(buffer, "fa") != 0 && strcmp(buffer, "fasta") != 0)
+		{
+			fprintf(stderr, "Error: database type not support:%s\r\n", buffer);
+			return -2;
+		}
+
+		database = fopen(op->database,"r");
+  	if(database == NULL)
+  	{
+  	  fprintf(stderr, "Database cannot open:%s\r\n",op->database);
+  	  return -2;
+  	}
+
+  	fseek(database, 0, SEEK_SET);
+		if(read2f_util(database, '>', 0, NULL, 0) < 0)
+		{
+			fprintf(stderr, "Error fa/fasta file format \r\n");
+			if(fp != NULL) fclose(fp);
+			fclose(database);
+			return -3;
+		}
+
+
 		fp = fopen(op->pac, "w");
 		if(fp == NULL)
 		{
@@ -251,7 +251,7 @@ int build_fingerprint(struct Index_Options * op)
 			{
 				if(c !='A' && c != 'C' && c!= 'G' && c!= 'T')
 				{
-					switch(lrand48() & 3)
+					switch(newRand(1000000, 0) & 3)
 					{
 						case 0: c = 'A'; break;
 						case 1: c = 'C'; break;
@@ -385,22 +385,28 @@ int build_fingerprint(struct Index_Options * op)
 			return -2;
 		}
 
-		buffer = (char *) malloc(op->length);
-		cursor = 0;
 		op->items = 0;
-		max[0]=max[1]=max[2]=max[3]=max[4]=max[5]=max[6]=max[7]=0;
-		min[0]=min[1]=min[2]=min[3]=min[4]=min[5]=min[6]=min[7]=-1;
+		lpt.pos = spt.pos = 0;
+		for(num=0; num<8; num++)
+		{
+			lpt.print[num] = 0;
+			spt.print[num] = -1;
+		}
 
 		fwrite(&op->items, sizeof(op->items), 1, fp);
-		fwrite(max, sizeof(FType), 8, fp);
-		fwrite(min, sizeof(FType), 8, fp);
+		fwrite(lpt.print, sizeof(FType), 8, fp);
+		fwrite(lpt.print, sizeof(FType), 8, fp);
 		fwrite(&op->length, sizeof(op->length), 1, fp);
 		fwrite(&op->interval, sizeof(op->interval), 1, fp);
 		fwrite(&op->band, sizeof(op->band), 1, fp);
 
+		cursor = 0;
+		buffer = (char *) malloc(op->length);
 		for(tmp=0; tmp<ref.seqs; tmp++)
 		{
 			chrptr = ref.chrom + tmp;
+			position = 0;
+
 			for(pnum=0; pnum<chrptr->pnum; pnum++)
 			{
 				if(chrptr->pie[pnum].plen < op->length)
@@ -409,9 +415,10 @@ int build_fingerprint(struct Index_Options * op)
 					continue;
 				}
 
+				position += chrptr->pie[pnum].nb;
+
 				for(i=0; i<=(chrptr->pie[pnum].plen-op->length); i+=op->interval)
 				{
-					// cursor represents the beginning postion of current piece
 					fseek(database, cursor + i, SEEK_SET);
 					if(fread(buffer, 1, op->length, database) != op->length)
 					{
@@ -419,15 +426,19 @@ int build_fingerprint(struct Index_Options * op)
 						break;
 					}
 
-					finger[0]=finger[1]=finger[2]=finger[3]=0;
-					finger[4]=finger[5]=finger[6]=finger[7]=op->length;
-					memset(print, 0, sizeof(FType)*8);
+					pt.pos = position + i;
+					for(num=0; num<8; num++)
+					{
+						if(num < 4) finger[num] = 0; else finger[num] = op->length;
+						pt.print[num] = 0;
+					}
+
 					for(j=0; j<op->length; j++)
 					{
-						print[4] += finger[4];
-						print[5] += finger[5];
-						print[6] += finger[6];
-						print[7] += finger[7];
+						pt.print[4] += finger[4];
+						pt.print[5] += finger[5];
+						pt.print[6] += finger[6];
+						pt.print[7] += finger[7];
 
 						switch(buffer[j])
 						{
@@ -437,41 +448,38 @@ int build_fingerprint(struct Index_Options * op)
 							case 'T': finger[3]++; finger[7]--; break;
 						}
 
-						print[0] += finger[0];
-						print[1] += finger[1];
-						print[2] += finger[2];
-						print[3] += finger[3];
+						pt.print[0] += finger[0];
+						pt.print[1] += finger[1];
+						pt.print[2] += finger[2];
+						pt.print[3] += finger[3];
 					}
 
-					print[4] -= finger[4]*op->length;
-					print[5] -= finger[5]*op->length;
-					print[6] -= finger[6]*op->length;
-					print[7] -= finger[7]*op->length;
+					pt.print[4] -= finger[4]*op->length;
+					pt.print[5] -= finger[5]*op->length;
+					pt.print[6] -= finger[6]*op->length;
+					pt.print[7] -= finger[7]*op->length;
 					
-					for(j=0; j<8; j++)
+					for(num=0; num<8; num++)
 					{
-						if(max[j] < print[j]) max[j] = print[j];
-						if(min[j] > print[j]) min[j] = print[j];
+						lpt.print[num] = lpt.print[num] < pt.print[num] ? pt.print[num] : lpt.print[num];
+						spt.print[num] = spt.print[num] > pt.print[num] ? pt.print[num] : spt.print[num];
 					}
 	
 					//store fingerprint here
-					j = cursor + i;
-					fwrite(&j, sizeof(j), 1, fp);
-					fwrite(print, sizeof(FType), 8, fp);
+					fwrite(&pt, sizeof(pt), 1, fp);
 					op->items++;
-
-				} // for(i=0; i<X; i+=op->interval)
-
+				} 
+				position += chrptr->pie[pnum].plen;
 				cursor += chrptr->pie[pnum].plen;
-			} // for(pnum=0; pnum < chrptr->pnum; pnum++)
-		} // for(tmp=0; tmp<ref.seqs; tmp++)
+			} 
+		}
 
 		// re-write info
 		cursor = ftell(fp);
 		fseek(fp, 0, SEEK_SET);
 		fwrite(&op->items, sizeof(op->items), 1, fp);
-		fwrite(max, sizeof(FType), 8, fp);
-		fwrite(min, sizeof(FType), 8, fp);
+		fwrite(lpt.print, sizeof(FType), 8, fp);
+		fwrite(spt.print, sizeof(FType), 8, fp);
 		fseek(fp, 0, SEEK_END);
 		if(cursor != ftell(fp))
 			fprintf(stderr, "Re-write uspt file error\r\n");

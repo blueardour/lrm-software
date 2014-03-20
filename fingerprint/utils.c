@@ -8,11 +8,15 @@
 
 #include "utils.h"
 
-u32 newRand(u32 range)
+u32 newRand(u32 range, int seed)
 {
 	static struct timeval tv;
-	gettimeofday(&tv);
-	srandom(tv.tv_usec);
+	if(seed != 0)
+	{
+		gettimeofday(&tv, NULL);
+		srandom(tv.tv_usec);
+	}
+	else srandom(seed);
 	return  (u32) (random()/(RAND_MAX+1.0) * range);
 }
 
@@ -97,6 +101,33 @@ int read2f_util(FILE *fp, char c, u08 forward, FILE * fp2, int filter)
 				if(ls=='N' && s=='N') n++; else n = 1;
 				if(n == filter) return -3;
 				ls = s;
+			}
+		}
+	}
+	return -1;
+}
+
+
+// forward
+// 0x01: copy to buffer
+int read2b_util(FILE *fp, char c, u08 forward, char * buffer, int len)
+{
+	char s;
+	int n;
+
+	if(forward & 0x01)
+		if(buffer == NULL) return -2;
+
+	n = 0;
+	while((s=fgetc(fp)) != EOF)
+	{
+		if(s==c) return 1;
+		else if(s=='A' || s=='C' || s=='G' || s=='T' || s=='N')
+		{
+			if(forward & 0x01)
+			{
+				buffer[n++] = s;
+				if(n == len) return 0;
 			}
 		}
 	}

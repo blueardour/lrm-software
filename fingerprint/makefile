@@ -16,7 +16,7 @@ all: index sort
 .cc.o:
 	    $(CXX) -c $(CXXFLAGS) $< -o $@
 
-lookup: lookup.o $(LIBS)
+aln: aln.o $(LIBS)
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
 index: index.o $(LIBS)
