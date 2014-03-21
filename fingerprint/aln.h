@@ -24,6 +24,7 @@ struct ALN_Options
 	u32 items;
 	u32 threshold;
 	struct PT * pt;
+	char pattern[4];
 	char * index;
 	char * pac;
 	char * spt;

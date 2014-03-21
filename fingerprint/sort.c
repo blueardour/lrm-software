@@ -56,16 +56,23 @@ static void format_Options(struct Sort_Options * op)
 	int len;
 
 	len = strlen(op->prefix);
-	op->uspt = (char *)malloc(len+6);
-	op->spt = (char *)malloc(len+10);
 
-	strcpy(op->uspt, op->prefix);
-	strcpy(op->spt, op->prefix);
-	strcat(op->spt, "-");
-	strncat(op->spt, op->pattern, 4);
+	if(op->uspt == NULL)
+	{
+		op->uspt = (char *)malloc(len+6);
+		strcpy(op->uspt, op->prefix);
+		strcat(op->uspt, ".uspt");
+	}
 
-	strcat(op->uspt, ".uspt");
-	strcat(op->spt, ".spt");
+	if(op->spt == NULL)
+	{
+		op->spt = (char *)malloc(len+10);
+
+		strcpy(op->spt, op->prefix);
+		strcat(op->spt, "-");
+		strncat(op->spt, op->pattern, 4);
+		strcat(op->spt, ".spt");
+	}
 
 	if(op->verbose & 0x80) op->verbose = 0x80;
 }
@@ -139,10 +146,10 @@ int sort_fingerprint(struct Sort_Options * op)
 		ptptr = (u32 *) malloc(sizeof(u32)*(max[shift]-min[shift]+1));
 		memset(ptptr, 0, sizeof(u32)*(max[shift]-min[shift]+1));
 
-		offset = sizeof(u32)*4 + sizeof(FType)*16;
+		offset = sizeof(u32)*4 + sizeof(FType)*16 + 20;
 		if(fseek(fp, offset, SEEK_SET) != 0)
 		{
-			fprintf(stderr, "Fseek uspt file error\r\n");
+			fprintf(stderr, "Fseek uspt/spt file error\r\n");
 			fclose(fp);
 			return -4;
 		}
@@ -190,6 +197,8 @@ int sort_fingerprint(struct Sort_Options * op)
 		fwrite(&interval, sizeof(interval), 1, database);
 		fwrite(&band, sizeof(band), 1, database);
 
+		fwrite(op->pattern, 1, 4, database);
+
 		tmp = sizeof(u32)+ 8*sizeof(FType);
 		if(fseek(database, offset + items * tmp, SEEK_SET) != 0)
 		{
@@ -236,30 +245,6 @@ int sort_fingerprint(struct Sort_Options * op)
 	fprintf(stdout, "===> Count conflicts file...%d\r\n", op->verbose & 0x02);
 	if(op->verbose & 0x02)
 	{
-		database = fopen(op->spt, "rb");
-  	if(database == NULL)
-  	{
-  	  fprintf(stderr, "Cannot open file:%s\r\n", op->spt);
-  	  return -2;
-  	}
-
-		offset = sizeof(u32)*4 + sizeof(FType)*16;
-		fseek(database, offset, SEEK_SET);
-		for(i=0; i<items; i++)
-		{
-			if(fread(&pos, sizeof(pos), 1, database) != 1)
-			{
-				fprintf(stderr, "Read fingerprint error\r\n");
-				fclose(database);
-				return -5;
-			}
-			if(fread(print, sizeof(FType), 8, database) != 8)
-			{
-				fprintf(stderr, "Read fingerprint error\r\n");
-				fclose(database);
-				return -5;
-			}
-		}
 	}
 
   return 0;

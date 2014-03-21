@@ -5,7 +5,7 @@ CXX=    g++
 CFLAGS=   -g -Wall -O2
 CXXFLAGS= $(CFLAGS)
 AR=     ar
-LIBS= utils.o
+LIBS= utils.o fingerprint.o
 
 all: index sort
 
@@ -29,6 +29,8 @@ dump: dump.o $(LIBS)
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
 utils.o: utils.h
+
+fingerprint.o: fingerprint.h
 
 clean:
 	rm *.o 

@@ -69,7 +69,7 @@ static int load_spt(struct ALN_Options * op)
 	int offset, tmp;
 	u32 i;
 
-	offset = sizeof(FType)*16 + sizeof(u32)*4;
+	offset = sizeof(FType)*16 + sizeof(u32)*4 + 20;
 
 	fp = fopen(op->spt, "rb");
 	if(fp == NULL) 
@@ -83,6 +83,7 @@ static int load_spt(struct ALN_Options * op)
 	if(fread(&op->length, sizeof(op->length), 1, fp) != 1) return -3;
 	if(fread(&op->interval, sizeof(op->interval), 1, fp) != 1) return -3;
 	if(fread(&op->band, sizeof(op->band), 1, fp) != 1) return -3;
+	if(fread(op->pattern, 1, 4, fp) != 1) return -3;
 
 	fprintf(stdout, "> Going to read %d fingerprint. len:%d interval:%d band:%d\r\n", \
 					op->items, op->length, op->interval, op->band);
@@ -133,12 +134,8 @@ static int align_read(struct ALN_Options * op)
 	char * buffer;
 	int tmp;
 	u32 i, begin, end;
-	char * pattern;
 	FType finger[8], print[8];
 	struct Differ MinDiff;
-
-
-	pattern = "ACGT";
 
 	pac = fopen(op->pac, "r");
 	if(pac == NULL) 
@@ -179,9 +176,9 @@ static int align_read(struct ALN_Options * op)
 		print[0] = print[1] = print[2] = print[3] = 0;
 		for(i=0; i<op->length; i++)
 		{
-			if(buffer[i] == pattern[0]) finger[0]++;
-			else if(buffer[i] == pattern[1]) finger[1]++;
-			else if(buffer[i] == pattern[2]) finger[2]++;
+			if(buffer[i] == op->pattern[0]) finger[0]++;
+			else if(buffer[i] == op->pattern[1]) finger[1]++;
+			else if(buffer[i] == op->pattern[2]) finger[2]++;
 			else finger[3]++;
 
 			print[0] += finger[0];
