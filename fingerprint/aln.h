@@ -11,22 +11,17 @@
 #include "utils.h"
 #include "fingerprint.h"
 
-struct PT
-{
-	u32 pos;
-	FType print[4];
-};
-
 struct ALN_Options
 {
 	u08 verbose;
 	u32 length, interval, band;
 	u32 items;
 	u32 threshold;
-	struct PT * pt;
+	Fingerprint * pt;
 	char pattern[4];
-	char * index;
+	char * prefix;
 	char * pac;
+	char * si;
 	char * spt;
 	char * read;
 	char * sam;

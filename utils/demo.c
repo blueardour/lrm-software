@@ -9,6 +9,8 @@ int main()
 	pid_t pid;
 	char buffer[100];
 
+	int array[100];
+
   //system("wget ftp://219.219.218.142/Software/PXE/PXE/WinPE-MaoTao-Single-1111.iso");
   printf("Download OK, sleeping 10s \r\n");
   //sleep(10);
@@ -28,5 +30,6 @@ int main()
 	if(a++, a==1) printf("A");
 	else printf("B");
 
+	printf("Sizoef(array):%d \r\n", sizeof(array));
   return 0;
 }

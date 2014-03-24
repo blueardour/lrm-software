@@ -10,5 +10,14 @@
 #include "types.h"
 #include "utils.h"
 
+struct Sort_Options
+{
+	u08 verbose;
+	char * prefix;
+	char * pattern;
+	char * uspt;
+	char * spt;
+};
+	
 #endif
 

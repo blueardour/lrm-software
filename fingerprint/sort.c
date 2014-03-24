@@ -12,18 +12,9 @@
 #define PROGRAM "fblra sort"
 
 
-struct Sort_Options
-{
-	u08 verbose;
-	char * prefix;
-	char * pattern;
-	char * uspt;
-	char * spt;
-};
-
 void init_Sort_Options(struct Sort_Options * op)
 {
-	op->verbose = 3;
+	op->verbose = -1;
 	op->prefix = NULL;
 	op->pattern = NULL;
 	op->uspt = NULL;
@@ -34,9 +25,10 @@ static int print_help()
 {
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
-	fprintf(stdout, "  -v(erbose):\r\n");
-	fprintf(stdout, "  -u[spt] str\r\n");
-	fprintf(stdout, "  -p(attern) str\r\n");
+	fprintf(stdout, "  -v[erbose]\r\n");
+	fprintf(stdout, "  -u[spt] str *\r\n");
+	fprintf(stdout, "  -p[attern] str *\r\n");
+	fprintf(stdout, "  -s[pt] str\r\n");
 	fprintf(stdout, "  -V(ersion)\r\n");
 	return 0;
 }
@@ -45,55 +37,46 @@ static void dump_Options(struct Sort_Options * op)
 {
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
-	fprintf(stdout, "  -v(erbose) 0x%02x\r\n", op->verbose);
-	fprintf(stdout, "  -p[attern] %s\r\n", op->pattern);
-	fprintf(stdout, "  -u(spt) %s\r\n", op->uspt);
-	fprintf(stdout, "  -s[pt] %s\r\n", op->spt);
+	fprintf(stdout, "  -verbose 0x%02x\r\n", op->verbose);
+	fprintf(stdout, "  -pattern %s\r\n", op->pattern);
+	fprintf(stdout, "  -uspt %s\r\n", op->uspt);
+	fprintf(stdout, "  -spt %s\r\n", op->spt);
 }
 
-static void format_Options(struct Sort_Options * op)
+static int format_Options(struct Sort_Options * op)
 { 
-	int len;
-
-	len = strlen(op->prefix);
-
-	if(op->uspt == NULL)
-	{
-		op->uspt = (char *)malloc(len+6);
-		strcpy(op->uspt, op->prefix);
-		strcat(op->uspt, ".uspt");
-	}
+	if(op->pattern == NULL || op->uspt == NULL) return -1;
 
 	if(op->spt == NULL)
 	{
-		op->spt = (char *)malloc(len+10);
-
-		strcpy(op->spt, op->prefix);
+		op->spt = (char *)malloc(strlen(op->uspt) + 10);
+		strcpy(op->spt, op->uspt);
 		strcat(op->spt, "-");
 		strncat(op->spt, op->pattern, 4);
 		strcat(op->spt, ".spt");
 	}
 
 	if(op->verbose & 0x80) op->verbose = 0x80;
+
+	return 0;
 }
 
 int sort_fingerprint(struct Sort_Options * op)
 {
 	int tmp, shift, offset;
 	FILE * fp, * database;
-	FType print[8], max[8], min[8];
+	Fingerprint pt, lpt, spt;
 	u32 items;
 	u32 count;
 	u32 length, band, interval;
-	u32 * ptptr;
-	u32 pos;
+	u32 * sortPtr;
 	u32 i;
 	
-	if(op->pattern == NULL || op->prefix == NULL) return -1;
-	format_Options(op);
 	fp = database = NULL;
-	ptptr = NULL;
-	tmp = 0;
+	sortPtr = NULL;
+
+	tmp = format_Options(op);
+	if(tmp < 0) return tmp;
 
 	fprintf(stdout, "===> Dump parameters...%d\r\n", op->verbose & 0x80);
 	if(op->verbose & 0x80)
@@ -112,9 +95,10 @@ int sort_fingerprint(struct Sort_Options * op)
   	}
 
 		tmp = 0;
+		fseek(fp, 20, SEEK_SET);
 		if(fread(&items, sizeof(items), 1, fp) != 1) tmp++;
-		if(fread(max, sizeof(FType), 8, fp) != 8) tmp++;
-		if(fread(min, sizeof(FType), 8, fp) != 8) tmp++;
+		if(fread(lpt.print, sizeof(FType), FPSize, fp) != FPSize) tmp++;
+		if(fread(spt.print, sizeof(FType), FPSize, fp) != FPSize) tmp++;
 		if(fread(&length, sizeof(length), 1, fp) != 1) tmp++;
 		if(fread(&interval, sizeof(interval), 1, fp) != 1) tmp++;
 		if(fread(&band, sizeof(band), 1, fp) != 1) tmp++;
@@ -141,12 +125,13 @@ int sort_fingerprint(struct Sort_Options * op)
 			break;
 		}
 
-		fprintf(stdout, "> Major Index:%c, max:%d, min:%d\r\n", op->pattern[tmp], max[shift], min[shift]);
+		fprintf(stdout, "> Major Index:%c, max:%d, min:%d\r\n", op->pattern[tmp], \
+						lpt.print[shift], spt.print[shift]);
 
-		ptptr = (u32 *) malloc(sizeof(u32)*(max[shift]-min[shift]+1));
-		memset(ptptr, 0, sizeof(u32)*(max[shift]-min[shift]+1));
+		sortPtr = (u32 *) malloc(sizeof(u32)*(lpt.print[shift] - spt.print[shift] + 1));
+		memset(sortPtr, 0, sizeof(u32)*(lpt.print[shift] - spt.print[shift] + 1));
 
-		offset = sizeof(u32)*4 + sizeof(FType)*16 + 20;
+		offset = sizeof(u32) * 4 + sizeof(FType) * FPSize * 2 + 40;
 		if(fseek(fp, offset, SEEK_SET) != 0)
 		{
 			fprintf(stderr, "Fseek uspt/spt file error\r\n");
@@ -156,31 +141,26 @@ int sort_fingerprint(struct Sort_Options * op)
 
 		for(i=0; i<items; i++)
 		{
-			if(fread(&pos, sizeof(pos), 1, fp) != 1)
+			if(fread(&pt, sizeof(pt), 1, fp) != 1)
 			{
 				fprintf(stderr, "Read fingerprint error\r\n");
 				fclose(fp);
 				return -4;
 			}
-			if(fread(print, sizeof(FType), 8, fp) != 8)
-			{
-				fprintf(stderr, "Read fingerprint error\r\n");
-				fclose(fp);
-				return -4;
-			}
-			if(print[shift] >= min[shift] && print[shift] <= max[shift])
-				ptptr[print[shift] - min[shift]]++;
+
+			if(pt.print[shift] >= spt.print[shift] && pt.print[shift] <= lpt.print[shift])
+				sortPtr[pt.print[shift] - spt.print[shift]]++;
 			else
 			{
-				fprintf(stderr, "Unexpected fingerprint, cur:%d\r\n", print[shift]);
+				fprintf(stderr, "Unexpected fingerprint, cur:%d\r\n", pt.print[shift]);
 				fclose(fp);
 				return -4;
 			}
 		}
 
-		for(i=1; i<max[shift]-min[shift]+1; i++)
+		for(i=1; i<lpt.print[shift] - spt.print[shift] + 1; i++)
 		{
-			ptptr[i] = ptptr[i] + ptptr[i-1];
+			sortPtr[i] = sortPtr[i] + sortPtr[i-1];
 		}
 
 		database = fopen(op->spt, "wb");
@@ -190,17 +170,18 @@ int sort_fingerprint(struct Sort_Options * op)
   	  return -2;
   	}
 
+		fseek(database, 20, SEEK_SET);
 		fwrite(&items, sizeof(items), 1, database);
-		fwrite(max, sizeof(FType), 8, database);
-		fwrite(min, sizeof(FType), 8, database);
+		fwrite(lpt.print, sizeof(FType), FPSize, database);
+		fwrite(spt.print, sizeof(FType), FPSize, database);
 		fwrite(&length, sizeof(length), 1, database);
 		fwrite(&interval, sizeof(interval), 1, database);
 		fwrite(&band, sizeof(band), 1, database);
 
 		fwrite(op->pattern, 1, 4, database);
 
-		tmp = sizeof(u32)+ 8*sizeof(FType);
-		if(fseek(database, offset + items * tmp, SEEK_SET) != 0)
+		tmp = sizeof(Fingerprint);
+		if(fseek(database, offset + items * sizeof(Fingerprint), SEEK_SET) != 0)
 		{
 			fprintf(stderr, "Fseek in spt file error.(%d)\r\n", offset + items * tmp);
 			fclose(fp);
@@ -211,24 +192,17 @@ int sort_fingerprint(struct Sort_Options * op)
 		fseek(fp, offset, SEEK_SET);
 		for(i=0; i<items; i++)
 		{
-			if(fread(&pos, sizeof(pos), 1, fp) != 1)
-			{
-				fprintf(stderr, "Read fingerprint error\r\n");
-				fclose(fp);
-				return -4;
-			}
-			if(fread(print, sizeof(FType), 8, fp) != 8)
+			if(fread(&pt, sizeof(pt), 1, fp) != 1)
 			{
 				fprintf(stderr, "Read fingerprint error\r\n");
 				fclose(fp);
 				return -4;
 			}
 
-			count = --ptptr[print[shift] - min[shift]];
-			if(count >= 0 && fseek(database, offset + count*tmp, SEEK_SET) == 0)
+			count = --sortPtr[pt.print[shift] - spt.print[shift]];
+			if(count >= 0 && fseek(database, offset + count * sizeof(Fingerprint), SEEK_SET) == 0)
 			{
-				fwrite(&pos, sizeof(pos), 1, database);
-				fwrite(print, sizeof(FType), 8, database);
+				fwrite(&pt, sizeof(pt), 1, database);
 			}
 			else
 			{
@@ -240,11 +214,6 @@ int sort_fingerprint(struct Sort_Options * op)
 		}
 		fclose(fp);
 		fclose(database);
-	}
-
-	fprintf(stdout, "===> Count conflicts file...%d\r\n", op->verbose & 0x02);
-	if(op->verbose & 0x02)
-	{
 	}
 
   return 0;
@@ -261,13 +230,14 @@ int main(int argc, char ** argv)
 
   init_Sort_Options(&op);
   options = 0;
-  while( (c=getopt(argc,argv,"p:u:v:V")) >=0)
+  while( (c=getopt(argc,argv,"p:u:s:v:V")) >=0)
   {
     switch(c)
     {
-      case 'u': options++; op.prefix = optarg; break;
+      case 'u': options++; op.uspt = optarg; break;
       case 'p': options++; op.pattern = optarg; break;
       case 'v': op.verbose = atoi(optarg); break;
+      case 's': op.spt = optarg; break;
       case 'V': fprintf(stdout, "%s\r\n", VERSION); return 0;
       default: return print_help(getFileName(argv[0]));
     }

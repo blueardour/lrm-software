@@ -11,65 +11,98 @@
 #define VERSION "1.0"
 #define PROGRAM "fblra aln"
 
+#define DEBUG 2
+
+
 static int print_help()
 {
-	fprintf(stdout, "%s ", PROGRAM);
-	fprintf(stdout, "ver (%s):\r\n", VERSION);
-  fprintf(stdout, "  -v(erbose)\r\n");
-  fprintf(stdout, "  -d(irectory) str\r\n");
-  fprintf(stdout, "  -V(ersion)\r\n");
-  fprintf(stdout, "  -spt str r\n");
-  fprintf(stdout, "  -read str\r\n");
-  fprintf(stdout, "  -sam str\r\n");
-  return 0;
+	fprintf(stderr, "%s ", PROGRAM);
+	fprintf(stderr, "ver (%s):\r\n", VERSION);
+	fprintf(stderr, "  -V(ersion)\r\n");
+	fprintf(stderr, "  -v(erbose)\r\n");
+	fprintf(stderr, "  -d(atabase) str *\r\n");
+	fprintf(stderr, "  -s(pt) str *\n");
+	fprintf(stderr, "  -r(ead) str *\r\n");
+	fprintf(stderr, "  -o[utput] str *\r\n");
+	return 0;
 }
 
 void init_ALN_Options(struct ALN_Options * op)
 {
-	op->verbose = 3;
+	op->verbose = -1;
   op->length = 1000;
 	op->interval = 128;
 	op->band = 10;
 	op->items = 0;
 	op->pt = NULL;
-	op->index = NULL;
+	op->prefix = NULL;
 	op->pac = NULL;
 	op->spt = NULL;
 	op->read = NULL;
 	op->sam = NULL;
+	op->si = NULL;
+	op->threshold = 20;
 }
 
-static void format_Options(struct ALN_Options * op)
+static int format_Options(struct ALN_Options * op)
 { 
-	op->pac = (char *)malloc(strlen(op->index) + 5);
-	strcpy(op->pac, op->index);
+	int len;
+	char * ptr;
+
+	if(op->prefix == NULL) return -1;
+
+	ptr = op->spt + strlen(op->spt) - 3;
+	if(strcmp(ptr, "spt") != 0)
+	{
+		fprintf(stderr, "File type not supported: %s\r\n", op->spt);
+		return -2;
+	}
+
+	ptr = getFileType(op->read);
+	if(strcmp(ptr, "fa") != 0 && strcmp(ptr, "fasta") != 0)
+	{
+		fprintf(stderr, "File type not supported: %s\r\n", op->read);
+		return -2;
+	}
+
+	len = strlen(op->prefix);
+	op->pac = (char *)malloc(len + 6);
+	op->si = (char *)malloc(len + 6);
+
+	strcpy(op->pac, op->prefix);
+	strcpy(op->si, op->prefix);
+
 	strcat(op->pac, ".pac");
+	strcat(op->si, ".si");
 
 	if(op->verbose & 0x80) op->verbose = 0x80;
+	return 0;
 }
 
 static void dump_Options(struct ALN_Options * op)
 {
-	fprintf(stdout, "%s ", PROGRAM);
-	fprintf(stdout, "ver (%s):\r\n", VERSION);
-  fprintf(stdout, "  -v(erbose) 0x%02x\r\n", op->verbose);
-  fprintf(stdout, "  -i(nterval) %d\r\n", op->interval);
-  fprintf(stdout, "  -l(ength) %d\r\n", op->length);
-  fprintf(stdout, "  -b(and) %d\r\n", op->band);
-  fprintf(stdout, "  -r[eference] %s\r\n", op->index);
-  fprintf(stdout, "  -spt %s\r\n", op->spt);
-  fprintf(stdout, "  -read %s\r\n", op->read);
-  fprintf(stdout, "  -sam %s\r\n", op->sam);
+	fprintf(stderr, "%s ", PROGRAM);
+	fprintf(stderr, "ver (%s):\r\n", VERSION);
+  fprintf(stderr, "  -verbose 0x%02x\r\n", op->verbose);
+  fprintf(stderr, "  -interval %d\r\n", op->interval);
+  fprintf(stderr, "  -length %d\r\n", op->length);
+  fprintf(stderr, "  -band %d\r\n", op->band);
+  fprintf(stderr, "  -reference %s\r\n", op->prefix);
+  fprintf(stderr, "  -spt %s\r\n", op->spt);
+  fprintf(stderr, "  -read %s\r\n", op->read);
+  fprintf(stderr, "  -sam %s\r\n", op->sam);
+  fprintf(stderr, "  -pac %s\r\n", op->pac);
+  fprintf(stderr, "  -si %s\r\n", op->si);
+  fprintf(stderr, "  -threshold %d\r\n", op->threshold);
+  fprintf(stderr, "  -sam %s\r\n", op->sam);
 }
 
 static int load_spt(struct ALN_Options * op)
 {
-	struct Fingerprint pt;
 	FILE * fp;
-	int offset, tmp;
+	Fingerprint lpt, spt;
+	int offset;
 	u32 i;
-
-	offset = sizeof(FType)*16 + sizeof(u32)*4 + 20;
 
 	fp = fopen(op->spt, "rb");
 	if(fp == NULL) 
@@ -78,76 +111,89 @@ static int load_spt(struct ALN_Options * op)
 		return -2;
 	}
 
-	if(fread(&op->items, sizeof(op->items), 1, fp) != 1) return -3;
-	fseek(fp, sizeof(u32) + 16 * sizeof(FType), SEEK_SET);
-	if(fread(&op->length, sizeof(op->length), 1, fp) != 1) return -3;
-	if(fread(&op->interval, sizeof(op->interval), 1, fp) != 1) return -3;
-	if(fread(&op->band, sizeof(op->band), 1, fp) != 1) return -3;
-	if(fread(op->pattern, 1, 4, fp) != 1) return -3;
+	fseek(fp, 20, SEEK_SET);
+	if(fread(&op->items, sizeof(op->items), 1, fp) != 1) return -2;
+	if(fread(lpt.print, sizeof(FType), FPSize, fp) != FPSize) return -2;
+	if(fread(spt.print, sizeof(FType), FPSize, fp) != FPSize) return -2;
+	if(fread(&op->length, sizeof(op->length), 1, fp) != 1) return -2;
+	if(fread(&op->interval, sizeof(op->interval), 1, fp) != 1) return -2;
+	if(fread(&op->band, sizeof(op->band), 1, fp) != 1) return -2;
+	if(fread(op->pattern, 1, 4, fp) != 4) return -2;
 
-	fprintf(stdout, "> Going to read %d fingerprint. len:%d interval:%d band:%d\r\n", \
+	fprintf(stderr, "> Going to read %d fingerprint. len:%d interval:%d band:%d\r\n", \
 					op->items, op->length, op->interval, op->band);
-	op->pt = (struct PT *) malloc(sizeof(struct PT) * op->items);
+	op->pt = (Fingerprint *) malloc(sizeof(Fingerprint) * op->items);
+	if(op->pt == NULL)
+	{
+		fprintf(stderr, "> Memory allocate failed\r\n");
+		return -3;
+	}
 
+	offset = sizeof(FType)*FPSize*2 + sizeof(u32)*4 + 40;
 	fseek(fp, offset, SEEK_SET);
 	for(i=0; i<op->items; i++)
 	{
-		if(fread(&pt, sizeof(struct Fingerprint), 1, fp) != 1) return -3;
-		op->pt[i].pos = pt.pos;
-		for(tmp=0; tmp<4; tmp++) op->pt[i].print[tmp] = pt.print[tmp];
+		if(fread(op->pt + i, sizeof(Fingerprint), 1, fp) != 1) return -2;
+
+#if(DEBUG == 1)
+		if(value(op->pt[i].pos, 79154047) < op->interval * 2) printf("pos: %d \r\n", op->pt[i].pos);
+#endif
 	}
+
+	fprintf(stderr, "> Done\r\n");
 	fclose(fp);
 	return 0;
 }
 
-static inline FType value(FType a, FType b)
-{
-	if(a > b) return a - b; else return b - a;
-}
 
-static FType estimate(FType * pt1, FType * pt2)
-{
-	return value(pt1[0], pt2[0]) + value(pt1[1], pt2[1]) + value(pt1[2], pt2[2]) + value(pt1[3], pt2[3]);
-}
-
-static u32 search_similar(struct PT * list, u32 len, FType pt)
+/*
+static int search_index(struct PT * list, u32 len, u32 * pos, FType pt)
 {
 	u32 beg, end, i;
 	struct PT * ptr;
 
-	beg = 0;
-	end= len;
+	beg = 0; end= len-1;
 	while(1)
 	{
 		i = end - beg;
-		if(i < 20) return beg + i/2;
+		if(i < 20)
+		{
+			*pos = beg + i/2;
+			break;
+		}
 		ptr = list + beg;
-		if(ptr[i/2].print[0] < pt) end -= i/2; else beg += i/2;
+		if(ptr[i/2].print[0] < pt) beg += i/2; else end -= i/2;
 	}
 	return 0;
 }
 
+static u32 search_range(struct PT * list, u32 len, u32 * beg, u32 * end, FType spt, FType lpt)
+{
+	return 0;
+}
+*/
+
 static int align_read(struct ALN_Options * op)
 {
-	FILE * pac, * read, * sam;
-	char sn[100];
+	FILE * read;
 	char * buffer;
+	char sn[100];
 	int tmp;
 	u32 i, begin, end;
-	FType finger[8], print[8];
-	struct Differ MinDiff;
-
-	pac = fopen(op->pac, "r");
-	if(pac == NULL) 
-	{
-		fprintf(stderr, "Database cannot open:%s\r\n", op->pac);
-		return -2;
-	}
+	FType print[FPSize], * ptptr;
 
 	read = fopen(op->read, "r");
 	if(read == NULL) 
 	{
-		fprintf(stderr, "Database cannot open:%s\r\n", op->read);
+		fprintf(stderr, "File cannot open:%s\r\n", op->read);
+		return -2;
+	}
+
+	/*
+	pac = fopen(op->pac, "r");
+	if(pac == NULL) 
+	{
+		fprintf(stderr, "File cannot open:%s\r\n", op->pac);
 		return -2;
 	}
 
@@ -157,53 +203,62 @@ static int align_read(struct ALN_Options * op)
 		fprintf(stderr, "Cannot create file:%s\r\n", op->sam);
 		return -2;
 	}
+	*/
 
-
+	begin = 0;
+	end = op->items;
 	buffer = (char *)malloc(op->length + 1);
-
+	buffer[op->length] = 0;
 	while(1)
 	{
 		if(feof(read) != 0) break;
 
-		if(read2b_util(read, '>', 0, NULL, 0) < 0) return -4;
-
+		if(read2b_util(read, '>', 0, NULL, 0) < 0) break;;
 		tmp = fscanf(read, "%s", sn);
+
 		if(read2b_util(read, '\n', 0, NULL, 0) < 0) break;
 
 		if(read2b_util(read, '>', 1, buffer, op->length) != 0) break;
 
-		finger[0] = finger[1] = finger[2] = finger[3] = 0;
-		print[0] = print[1] = print[2] = print[3] = 0;
-		for(i=0; i<op->length; i++)
-		{
-			if(buffer[i] == op->pattern[0]) finger[0]++;
-			else if(buffer[i] == op->pattern[1]) finger[1]++;
-			else if(buffer[i] == op->pattern[2]) finger[2]++;
-			else finger[3]++;
+		stampFinger(print, buffer, op->length);
 
-			print[0] += finger[0];
-			print[1] += finger[1];
-			print[2] += finger[2];
-			print[3] += finger[3];
-		}
-
-		i = search_similar(op->pt, op->items, print[0]);
-		begin = i > op->threshold ? i - op->threshold : 0;
-		end = i + op->threshold > op->items? op->items : i + op->threshold;
-
-		MinDiff.diff = estimate(print, op->pt[end].print);
-		MinDiff.pos = end;
+#if(DEBUG == 1)
+		u32 debug;
+		fprintf(stderr, "SN:%s\r\n", sn);
+		ptptr = print;
+		for(tmp=0; tmp<FPSize; tmp++) fprintf(stderr, "%d ", ptptr[tmp]);
+		fprintf(stderr, "\r\n");
+		
+		fprintf(stderr, "SN[%d]\r\n", op->pt[0].pos);
+		ptptr = op->pt[0].print;
+		for(tmp=0; tmp<FPSize; tmp++) fprintf(stderr, "%d ", ptptr[tmp]);
+		fprintf(stderr, "\r\n");
+		
 		for(i=begin; i<end; i++)
 		{
-			if(MinDiff.diff < estimate(print, op->pt[i].print))
-			{
-				MinDiff.diff = estimate(print, op->pt[i].print);
-				MinDiff.pos =  op->pt[i].pos;
-			}
+			debug = estimate(print, op->pt[i].print, FPSize);
+			if(debug < 16000)
+				fprintf(stdout, "%d : %d\r\n", op->pt[i].pos, debug);
 		}
-		fprintf(stdout, "%s\t%d\r\n", sn, MinDiff.pos);
+		break;
+#endif
+
+#if(DEBUG == 2)
+		u32 debug;
+		fprintf(stdout, "SN:%s\r\n", sn);
+		
+		for(i=begin; i<end; i++)
+		{
+			debug = estimate(print, op->pt[i].print, FPSize);
+			if(debug < 16000)
+				fprintf(stdout, "%d : %d\r\n", op->pt[i].pos, debug);
+		}
+#endif
+
 	}
 
+	getchar();
+	fclose(read);
 	return 0;
 }
 
@@ -211,7 +266,8 @@ int aln_by_fingerprint(struct ALN_Options * op)
 {
 	int tmp;
 
-  format_Options(op);
+	tmp = format_Options(op);
+	if(tmp < 0) return tmp;
 
 	fprintf(stdout, "===> Dump parameters...%d\r\n", op->verbose & 0x80);
 	if(op->verbose & 0x80)
@@ -226,7 +282,7 @@ int aln_by_fingerprint(struct ALN_Options * op)
 		if(tmp < 0) return tmp;
 	}
 
-	fprintf(stdout, "===> Align reads...%d\r\n", op->verbose & 0x03);
+	fprintf(stdout, "===> Align reads...%d\r\n", (op->verbose & 0x03) == 0x03);
 	if((op->verbose & 0x03) == 0x03)
 	{
 		tmp = align_read(op);
@@ -244,24 +300,26 @@ int main(int argc, char ** argv)
 {
   struct ALN_Options op;
   char c;
-  int options;
+  u08 options;
 
-  init_ALN_Options(&op);
   options = 0;
-  while( (c=getopt(argc,argv,"i:d:r:s:t:v:V")) >=0)
+  init_ALN_Options(&op);
+  while( (c=getopt(argc,argv,"t:o:r:s:d:v:V")) >=0)
   {
     switch(c)
     {
-      case 'i': op.index = optarg; break;
-      case 'd': op.spt = optarg; break;
-      case 'r': op.read = optarg; break;
-      case 's': op.sam = optarg; break;
-      case 't': op.threshold = atoi(optarg); break;
-      case 'v': op.verbose = atoi(optarg); break;
+      case 'o': options |= 0x01; op.sam = optarg; break;
+      case 'r': options |= 0x02; op.read = optarg; break;
+      case 's': options |= 0x04; op.spt = optarg; break;
+      case 'd': options |= 0x08; op.prefix = optarg; break;
+      case 't': options |= 0x00; op.threshold = atoi(optarg); break;
+      case 'v': options |= 0x00; op.verbose = atoi(optarg); break;
       case 'V': fprintf(stdout, "%s\r\n", VERSION); return 0;
       default: return print_help();
     }
   }
+
+	if((options & 0x0f) != 0x0f) return print_help();
 
   return aln_by_fingerprint(&op);
 }

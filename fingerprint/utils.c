@@ -25,7 +25,7 @@ char * getFileName(const char * FilePath)
 {
   char * filename;
   int i;
-  filename = (char *)FilePath;
+  filename = (char *) FilePath;
   for(i=strlen(FilePath)-1; i>=0; i--)
   {
     if(FilePath[i] == '\\' || FilePath[i] == '/')

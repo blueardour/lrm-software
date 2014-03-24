@@ -4,10 +4,25 @@ CC=     gcc
 CXX=    g++
 CFLAGS=   -g -Wall -O2
 CXXFLAGS= $(CFLAGS)
-AR=     ar
-LIBS= utils.o fingerprint.o
+AR=   ar
 
-all: index sort
+LIBS= utils.o fingerprint.o
+TARGET= aln sort index printfinger
+
+all: $(LIBS) $(TARGET)
+
+aln: aln.o
+	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+
+sort: sort.o
+	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+
+index: index.o
+	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+
+printfinger: printfinger.o
+	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+
 
 .SUFFIXES:.c .o .cc
 
@@ -16,21 +31,4 @@ all: index sort
 .cc.o:
 	    $(CXX) -c $(CXXFLAGS) $< -o $@
 
-aln: aln.o $(LIBS)
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
-index: index.o $(LIBS)
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
-
-sort: sort.o $(LIBS)
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
-
-dump: dump.o $(LIBS)
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
-
-utils.o: utils.h
-
-fingerprint.o: fingerprint.h
-
-clean:
-	rm *.o 

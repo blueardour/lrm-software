@@ -8,8 +8,6 @@
 
 #include "index.h"
 
-extern u08 nst_nt4_table[256];
-
 #define VERSION "1.0"
 #define PROGRAM "fblra index"
 
@@ -18,10 +16,10 @@ static int print_help()
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
   fprintf(stdout, "  -v(erbose)\r\n");
-  fprintf(stdout, "  -i(nterval) num\r\n");
-  fprintf(stdout, "  -l(ength) num\r\n");
-  fprintf(stdout, "  -b(and) num\r\n");
-  fprintf(stdout, "  -r[eference] str\r\n");
+  fprintf(stdout, "  -i(nterval) num *\r\n");
+  fprintf(stdout, "  -l(ength) num *\r\n");
+  fprintf(stdout, "  -b(and) num *\r\n");
+  fprintf(stdout, "  -r[eference] str *\r\n");
   fprintf(stdout, "  -p(refix) str\r\n");
   fprintf(stdout, "  -d(irectory) str\r\n");
   fprintf(stdout, "  -V(ersion)\r\n");
@@ -30,7 +28,7 @@ static int print_help()
 
 void init_Index_Options(struct Index_Options * op)
 {
-	op->verbose = 3;
+	op->verbose = -1;
   op->length = 1000;
 	op->interval = 128;
 	op->band = 10;
@@ -43,7 +41,7 @@ void init_Index_Options(struct Index_Options * op)
 	op->dir = NULL;
 }
 
-static void format_Options(struct Index_Options * op)
+static int format_Options(struct Index_Options * op)
 { 
 	int len;
 	char * path;
@@ -51,13 +49,16 @@ static void format_Options(struct Index_Options * op)
 	len = 0;
 	path = NULL;
 
+  if(op->length < 1 || op->length > 65000) return -1;
+
 	if(op->dir != NULL) path = op->dir; else path=getFilePath(op->database);
-	if(op->prefix != NULL) len += strlen(op->prefix);
+	if(path == NULL) path = "./";
+
 	len = strlen(path) + strlen(getFileName(op->database));
 
-	op->si = (char *)malloc(len+5);
-	op->pac = (char *)malloc(len+5);
-	op->uspt = (char *)malloc(len+5);
+	op->si = (char *)malloc(len + 6);
+	op->pac = (char *)malloc(len + 6);
+	op->uspt = (char *)malloc(len + 40);
 
 	strcpy(op->si, path);
 	strcpy(op->pac, path);
@@ -76,34 +77,34 @@ static void format_Options(struct Index_Options * op)
 
 	strcat(op->si, getFileName(op->database));
 	strcat(op->pac, getFileName(op->database));
-	if(op->prefix != NULL) strcat(op->si, op->prefix);
 	strcat(op->uspt, getFileName(op->database));
 
-	len = len - strlen(getFileType(op->database));
-	op->uspt[len] = 0;
-	op->si[len] = 0;
-	op->pac[len] = 0;
-	strcat(op->si, "si");
-	strcat(op->uspt, "uspt");
-	strcat(op->pac, "pac");
+	if(op->prefix != NULL) strncat(op->uspt, op->prefix, 30);
+
+	strcat(op->si, ".si");
+	strcat(op->pac, ".pac");
+	strcat(op->uspt, ".uspt");
 
 	if(op->verbose & 0x80) op->verbose = 0x80;
+	if(op->verbose & 0x40) op->verbose = 0x40;
+
+	return 0;
 }
 
 static void dump_Options(struct Index_Options * op)
 {
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
-  fprintf(stdout, "  -v(erbose) 0x%02x\r\n", op->verbose);
-  fprintf(stdout, "  -i(nterval) %d\r\n", op->interval);
-  fprintf(stdout, "  -l(ength) %d\r\n", op->length);
-  fprintf(stdout, "  -b(and) %d\r\n", op->band);
-  fprintf(stdout, "  -p(refix) %s\r\n", op->prefix);
-  fprintf(stdout, "  -d(irectory) %s\r\n", op->dir);
-  fprintf(stdout, "  -r[eference] %s\r\n", op->database);
-  fprintf(stdout, "  -p[ac] %s\r\n", op->pac);
-  fprintf(stdout, "  -u[spt] %s\r\n", op->uspt);
-  fprintf(stdout, "  -s[i] %s\r\n", op->si);
+  fprintf(stdout, "  -verbose 0x%02x\r\n", op->verbose);
+  fprintf(stdout, "  -interval %d\r\n", op->interval);
+  fprintf(stdout, "  -length %d\r\n", op->length);
+  fprintf(stdout, "  -band %d\r\n", op->band);
+  fprintf(stdout, "  -prefix %s\r\n", op->prefix);
+  fprintf(stdout, "  -directory %s\r\n", op->dir);
+  fprintf(stdout, "  -reference %s\r\n", op->database);
+  fprintf(stdout, "  -pac %s\r\n", op->pac);
+  fprintf(stdout, "  -uspt %s\r\n", op->uspt);
+  fprintf(stdout, "  -si %s\r\n", op->si);
 }
 
 static int generate_pac(struct Index_Options * op, struct Reference * ref)
@@ -115,6 +116,9 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 	u32 len;
 
 	fp = database = NULL;
+	ref->A = ref->C = ref->G = ref->T = ref->N = 0;
+	ref->seqs = 0;
+	ref->chrom = NULL;
 
 	ptr = getFileType(op->database);
 	if(strcmp(ptr, "fa") != 0 && strcmp(ptr, "fasta") != 0)
@@ -160,16 +164,18 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 			ref->chrom = (struct chromosome *)realloc(ref->chrom, sizeof(struct chromosome)* num);
 		}
 
+		chrptr = ref->chrom + ref->seqs;
 		chrptr->pnum = 0;
 		pnum = 16;
-		chrptr->pie = (struct piece *) malloc(sizeof(struct piece)*pnum);
 		chrptr->slen = 0;
-		chrptr->sn = (char *) malloc(50);
-		chrptr->nlen = 0;
+		chrptr->pie = (struct piece *) malloc(sizeof(struct piece)*pnum);
+
 		ref->seqs++;
 
+		chrptr->sn = (char *) malloc(1024);
+		chrptr->nlen = 0;
 		tmp = fscanf(database, "%s", chrptr->sn);
-		if(tmp < 0 || tmp > 50)
+		if(tmp < 0 || tmp > 1024)
 		{
 			fprintf(stderr, "Failed to get ref name, err:%d\r\n", tmp);
 			op->verbose = 0;
@@ -321,11 +327,10 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 {
 	FILE * fp, * database;
 	struct chromosome * chrptr;
-	struct Fingerprint pt, lpt, spt;
-	FType finger[8];
 	int tmp, pnum, num;
 	char * buffer;
-	u32 i, j, cursor, position;
+	u32 i, cursor, position;
+	Fingerprint pt, lpt, spt;
 
 	fp = fopen(op->si, "r");
 	if(fp == NULL)
@@ -334,16 +339,16 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 		return -2;
 	}
 
-	if(fread(&ref, sizeof(struct Reference), 1, fp) != 1)
+	if(fread(ref, sizeof(struct Reference), 1, fp) != 1)
 	{
-		fprintf(stderr, "SI File read error\r\n");
+		fprintf(stderr, "SI File read error-1\r\n");
 		return -2;
 	}
 
 	ref->chrom = (struct chromosome *) malloc(ref->seqs*sizeof(struct chromosome));
 	if(fread(ref->chrom, sizeof(struct chromosome), ref->seqs, fp) != ref->seqs)
 	{
-		fprintf(stderr, "SI File read error\r\n");
+		fprintf(stderr, "SI File read error-2\r\n");
 		return -2;
 	}
 
@@ -356,12 +361,12 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 
 		if(fread(chrptr->pie, sizeof(struct piece), chrptr->pnum, fp) != chrptr->pnum)
 		{
-			fprintf(stderr, "SI File read error-3(EOF:%d, ERR:%d)\r\n", feof(fp), ferror(fp));
+			fprintf(stderr, "SI File read error-3\r\n");
 			return -2;
 		}
 		if(fread(chrptr->sn, 1, chrptr->nlen, fp) != chrptr->nlen)
 		{
-			fprintf(stderr, "SI File read error-4(EOF:%d, ERR:%d)\r\n", feof(fp), ferror(fp));
+			fprintf(stderr, "SI File read error-4\r\n");
 			return -2;
 		}
 	}
@@ -385,32 +390,37 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 
 	op->items = 0;
 	lpt.pos = spt.pos = 0;
-	for(tmp=0; tmp<8; tmp++)
+	for(tmp=0; tmp<FPSize; tmp++)
 	{
 		lpt.print[tmp] = 0;
 		spt.print[tmp] = -1;
 	}
 
+	// fill 20 bytes
+	fwrite(lpt.print, 1, 20, fp);
+	
 	fwrite(&op->items, sizeof(op->items), 1, fp);
-	fwrite(lpt.print, sizeof(FType), 8, fp);
-	fwrite(spt.print, sizeof(FType), 8, fp);
+	fwrite(lpt.print, sizeof(FType), FPSize, fp);
+	fwrite(spt.print, sizeof(FType), FPSize, fp);
 	fwrite(&op->length, sizeof(op->length), 1, fp);
 	fwrite(&op->interval, sizeof(op->interval), 1, fp);
 	fwrite(&op->band, sizeof(op->band), 1, fp);
 
 	// fill 20 bytes
-	fwrite(&op, 1, 20, fp);
+	fwrite(lpt.print, 1, 20, fp);
 
 	cursor = 0;
-	buffer = (char *) malloc(op->length);
+	buffer = (char *) malloc(op->length + 1);
+	buffer[op->length] = 0;
 	for(tmp=0; tmp<ref->seqs; tmp++)
 	{
 		chrptr = ref->chrom + tmp;
-		position = 0;
 
-		for(pnum=0; pnum<chrptr->pnum; pnum++, \
-				cursor += chrptr->pie[pnum].plen + chrptr->pie[pnum].nb,\
-				position += chrptr->pie[pnum].plen + chrptr->pie[pnum].nb) 
+		for(pnum = 0, cursor += position = chrptr->pie[pnum].nb; \
+				pnum < chrptr->pnum; \
+				pnum++, \
+				cursor += chrptr->pie[pnum-1].plen + chrptr->pie[pnum].nb,\
+				position += chrptr->pie[pnum-1].plen + chrptr->pie[pnum].nb) 
 		{
 			if(chrptr->pie[pnum].plen < op->length) continue;
 
@@ -419,42 +429,18 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 				fseek(database, cursor + i, SEEK_SET);
 				if(fread(buffer, 1, op->length, database) != op->length)
 				{
-					fprintf(stderr, "Read File error. Err:%d-EOF:%d\r\n", feof(database), ferror(database));
+					fprintf(stderr, "Read File [%d in %d]. \r\n", cursor + i, chrptr->slen);
+					fprintf(stderr, "Read File error[%d]. Err:%d, EOF:%d\r\n", \
+									i, feof(database), ferror(database));
 					return -1;
 				}
 
-				pt.pos = position + i;
-				for(num=0; num<8; num++) pt.print[num] = 0;
-				finger[0] = finger[1] = finger[2] = finger[3] = 0;
-				finger[4] = finger[5] = finger[6] = finger[7] = op->length;
+				pt.pos = position + i + 1;
+				stampFinger(pt.print, buffer, op->length);
 
-				for(j=0; j<op->length; j++)
-				{
-					pt.print[4] += finger[4];
-					pt.print[5] += finger[5];
-					pt.print[6] += finger[6];
-					pt.print[7] += finger[7];
+				//if(pt.pos == 1199024) printf("%s\r\n", buffer);
 
-					switch(buffer[j])
-					{
-						case 'A': finger[0]++; finger[4]--; break;
-						case 'C': finger[1]++; finger[5]--; break;
-						case 'G': finger[2]++; finger[6]--; break;
-						case 'T': finger[3]++; finger[7]--; break;
-					}
-
-					pt.print[0] += finger[0];
-					pt.print[1] += finger[1];
-					pt.print[2] += finger[2];
-					pt.print[3] += finger[3];
-				}
-
-				pt.print[4] -= finger[4]*op->length;
-				pt.print[5] -= finger[5]*op->length;
-				pt.print[6] -= finger[6]*op->length;
-				pt.print[7] -= finger[7]*op->length;
-				
-				for(num=0; num<8; num++)
+				for(num=0; num<FPSize; num++)
 				{
 					lpt.print[num] = lpt.print[num] < pt.print[num] ? pt.print[num] : lpt.print[num];
 					spt.print[num] = spt.print[num] > pt.print[num] ? pt.print[num] : spt.print[num];
@@ -469,10 +455,10 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 
 	// re-write info
 	cursor = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
+	fseek(fp, 20, SEEK_SET);
 	fwrite(&op->items, sizeof(op->items), 1, fp);
-	fwrite(lpt.print, sizeof(FType), 8, fp);
-	fwrite(spt.print, sizeof(FType), 8, fp);
+	fwrite(lpt.print, sizeof(FType), FPSize, fp);
+	fwrite(spt.print, sizeof(FType), FPSize, fp);
 	fseek(fp, 0, SEEK_END);
 	if(cursor != ftell(fp))
 	{
@@ -501,17 +487,17 @@ int build_fingerprint(struct Index_Options * op)
 	struct Reference ref;
 	int tmp;
 	
-  if(op->length < 1 || op->length > 65000) return -1;
-
-  format_Options(op);
-	ref.A = ref.C = ref.G = ref.T = ref.N = 0;
-	ref.seqs = 0;
-	ref.chrom = NULL;
+  tmp = format_Options(op);
+	if(tmp < 0) return tmp;
 
 	fprintf(stdout, "===> Dump parameters...%d\r\n", op->verbose & 0x80);
 	if(op->verbose & 0x80)
 	{
 		dump_Options(op);
+	}
+
+	if(op->verbose & 0x40)
+	{
 	}
 
 	fprintf(stdout, "===> Generate PAC/SI file...%d\r\n", op->verbose & 0x01);
