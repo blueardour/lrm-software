@@ -32,3 +32,5 @@ printfinger: printfinger.o
 	    $(CXX) -c $(CXXFLAGS) $< -o $@
 
 
+clean:
+	@rm *.o

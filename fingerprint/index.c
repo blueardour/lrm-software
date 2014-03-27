@@ -300,6 +300,11 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 				return -2;
 			}
 
+			for(tmp=0; tmp<ref->chrom->pnum; tmp++)
+			{
+				printf("nb:%d sn:%d\r\n", ref->chrom->pie[tmp].nb, ref->chrom->pie[tmp].plen);
+			}
+
 			fwrite(ref, sizeof(struct Reference), 1, fp);
 			fwrite(ref->chrom, sizeof(struct chromosome), ref->seqs, fp);
 			for(tmp=0; tmp<ref->seqs; tmp++)
@@ -540,11 +545,11 @@ int main(int argc, char ** argv)
       case 'd': op.dir = optarg; break;
       case 'v': op.verbose = atoi(optarg); break;
       case 'V': fprintf(stdout, "%s\r\n", VERSION); return 0;
-      default: return print_help(getFileName(argv[0]));
+      default: return print_help();
     }
   }
 
-  if(options < 4) return print_help(getFileName(argv[0]));
+  if(options < 4) return print_help();
 
   return build_fingerprint(&op);
 }

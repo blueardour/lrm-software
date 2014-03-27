@@ -146,27 +146,20 @@ static int load_spt(struct ALN_Options * op)
 }
 
 
-/*
-static int search_index(struct PT * list, u32 len, u32 * pos, FType pt)
+static u32 search_position(struct ALN_Options * op, u32 pos)
 {
-	u32 beg, end, i;
-	struct PT * ptr;
-
-	beg = 0; end= len-1;
-	while(1)
+	u32 i;
+	for(i=0; i<op->items; i++)
 	{
-		i = end - beg;
-		if(i < 20)
+		if(value(op->pt[i].pos, pos) <= op->interval)
 		{
-			*pos = beg + i/2;
-			break;
+			return op->pt[i].pos;
 		}
-		ptr = list + beg;
-		if(ptr[i/2].print[0] < pt) beg += i/2; else end -= i/2;
 	}
 	return 0;
 }
 
+/*
 static u32 search_range(struct PT * list, u32 len, u32 * beg, u32 * end, FType spt, FType lpt)
 {
 	return 0;
@@ -245,6 +238,7 @@ static int align_read(struct ALN_Options * op)
 
 #if(DEBUG == 2)
 		u32 debug;
+		if(strcmp(sn, "reference-5_148131972_148132971_0:1:0_0:14:3_5/1") != 0) continue;
 		fprintf(stdout, "SN:%s\r\n", sn);
 		
 		for(i=begin; i<end; i++)
@@ -280,6 +274,12 @@ int aln_by_fingerprint(struct ALN_Options * op)
 	{
 		tmp = load_spt(op);
 		if(tmp < 0) return tmp;
+	}
+
+	if(op->verbose & 0x04)
+	{
+		fprintf(stdout, "pos: %d \r\n", search_position(op, 148131972));
+		op->verbose = 0x00;
 	}
 
 	fprintf(stdout, "===> Align reads...%d\r\n", (op->verbose & 0x03) == 0x03);

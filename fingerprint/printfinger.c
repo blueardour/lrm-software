@@ -57,15 +57,23 @@ int main(int argc, char ** argv)
 		}
 
 		c = fgetc(fp);
-		if(c == '>') if(read2f_util(fp, '\n', 0, NULL, 0) != 0)
+		if(c == '>')
 		{
-			printf("Seq read error\r\n");
-			return -2;
+			if(read2f_util(fp, '\n', 0, NULL, 0) != 0)
+			{
+				printf("Seq read error-1\r\n");
+				return -2;
+			}
+		}
+		else
+		{
+			buffer[0] = c;
+			len --;
 		}
 
-		if(read2b_util(fp, EOF, 1, buffer, len) != 0)
+		if(read2b_util(fp, EOF, 1, buffer + 1, len) != 0)
 		{
-			printf("Seq read error\r\n");
+			printf("Seq read error-2\r\n");
 			return -2;
 		}
 
