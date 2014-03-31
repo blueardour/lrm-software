@@ -11,12 +11,20 @@
 u32 newRand(u32 range, int seed)
 {
 	static struct timeval tv;
-	if(seed != 0)
+	static int SET = 0;
+	if(seed == 0)
 	{
 		gettimeofday(&tv, NULL);
 		srandom(tv.tv_usec);
 	}
-	else srandom(seed);
+	else
+	{
+		if(SET == 0)
+		{
+			srandom(seed);
+			SET++;
+		}
+	}
 	return  (u32) (random()/(RAND_MAX+1.0) * range);
 }
 

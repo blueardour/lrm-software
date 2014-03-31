@@ -30,10 +30,11 @@ static int print_help()
 void init_ALN_Options(struct ALN_Options * op)
 {
 	op->verbose = -1;
-  op->length = 1000;
-	op->interval = 128;
-	op->band = 10;
+  op->length = 0;
+	op->interval = 0;
+	op->band = 0;
 	op->items = 0;
+	op->threshold = 0;
 	op->pt = NULL;
 	op->prefix = NULL;
 	op->pac = NULL;
@@ -41,7 +42,6 @@ void init_ALN_Options(struct ALN_Options * op)
 	op->read = NULL;
 	op->sam = NULL;
 	op->si = NULL;
-	op->threshold = 20;
 }
 
 static int format_Options(struct ALN_Options * op)
@@ -83,10 +83,6 @@ static void dump_Options(struct ALN_Options * op)
 {
 	fprintf(stderr, "%s ", PROGRAM);
 	fprintf(stderr, "ver (%s):\r\n", VERSION);
-  fprintf(stderr, "  -verbose 0x%02x\r\n", op->verbose);
-  fprintf(stderr, "  -interval %d\r\n", op->interval);
-  fprintf(stderr, "  -length %d\r\n", op->length);
-  fprintf(stderr, "  -band %d\r\n", op->band);
   fprintf(stderr, "  -reference %s\r\n", op->prefix);
   fprintf(stderr, "  -spt %s\r\n", op->spt);
   fprintf(stderr, "  -read %s\r\n", op->read);
@@ -94,7 +90,7 @@ static void dump_Options(struct ALN_Options * op)
   fprintf(stderr, "  -pac %s\r\n", op->pac);
   fprintf(stderr, "  -si %s\r\n", op->si);
   fprintf(stderr, "  -threshold %d\r\n", op->threshold);
-  fprintf(stderr, "  -sam %s\r\n", op->sam);
+  fprintf(stderr, "  -verbose 0x%02x\r\n", op->verbose);
 }
 
 static int load_spt(struct ALN_Options * op)
@@ -173,7 +169,7 @@ static int align_read(struct ALN_Options * op)
 	char sn[100];
 	int tmp;
 	u32 i, begin, end;
-	FType print[FPSize], * ptptr;
+	FType print[FPSize*2], * ptptr;
 
 	read = fopen(op->read, "r");
 	if(read == NULL) 
@@ -206,12 +202,14 @@ static int align_read(struct ALN_Options * op)
 	{
 		if(feof(read) != 0) break;
 
+#if(DEBUG != 3)
 		if(read2b_util(read, '>', 0, NULL, 0) < 0) break;;
 		tmp = fscanf(read, "%s", sn);
 
 		if(read2b_util(read, '\n', 0, NULL, 0) < 0) break;
 
 		if(read2b_util(read, '>', 1, buffer, op->length) != 0) break;
+#endif
 
 		stampFinger(print, buffer, op->length);
 
@@ -236,22 +234,46 @@ static int align_read(struct ALN_Options * op)
 		break;
 #endif
 
-#if(DEBUG == 2)
+#if(DEBUG == 3 || DEBUG == 2)
 		u32 debug;
-		if(strcmp(sn, "reference-5_148131972_148132971_0:1:0_0:14:3_5/1") != 0) continue;
 		fprintf(stdout, "SN:%s\r\n", sn);
 		
+		ptptr = print;
+		fprintf(stdout, "Print: %d %d %d %d\r\n", ptptr[0], ptptr[1], ptptr[2], ptptr[3]);
 		for(i=begin; i<end; i++)
 		{
 			debug = estimate(print, op->pt[i].print, FPSize);
-			if(debug < 16000)
-				fprintf(stdout, "%d : %d\r\n", op->pt[i].pos, debug);
+			if(debug < op->threshold)
+				fprintf(stdout, "Forward: [%d]-> %d : %d\r\n", i, op->pt[i].pos, debug);
+
+			debug = estimateReverse(print, op->pt[i].print, FPSize);
+			if(debug < op->threshold)
+				fprintf(stdout, "Reverse: [%d]-> %d : %d\r\n", i, op->pt[i].pos, debug);
+
+			/*
+			if(value(op->pt[i].pos, 115717560) <= op->interval)
+			{
+				fprintf(stdout, "Pos: %d\r\n", op->pt[i].pos);
+				estimate_debug(print, op->pt[i].print, FPSize);
+				estimateReverse_debug(print, op->pt[i].print, FPSize);
+			}
+
+			if(i==626109 || i==626110 || i==10371923 || i==21108530)
+			{
+				ptptr = print;
+				fprintf(stdout, "Print: %d %d %d %d\r\n", ptptr[0], ptptr[1], ptptr[2], ptptr[3]);
+				ptptr = op->pt[i].print;
+				fprintf(stdout, "Print: %d %d %d %d\r\n", ptptr[0], ptptr[1], ptptr[2], ptptr[3]);
+				fprintf(stdout, "[%d]-> %d : %d\r\n", i, op->pt[i].pos, estimate_debug(print + 4, op->pt[i].print, FPSize));
+			}
+			*/
 		}
+
 #endif
 
+		getchar();
 	}
 
-	getchar();
 	fclose(read);
 	return 0;
 }

@@ -15,13 +15,13 @@ static int print_help()
 {
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
-  fprintf(stdout, "  -v(erbose)\r\n");
   fprintf(stdout, "  -i(nterval) num *\r\n");
   fprintf(stdout, "  -l(ength) num *\r\n");
   fprintf(stdout, "  -b(and) num *\r\n");
   fprintf(stdout, "  -r[eference] str *\r\n");
   fprintf(stdout, "  -p(refix) str\r\n");
   fprintf(stdout, "  -d(irectory) str\r\n");
+  fprintf(stdout, "  -v(erbose)\r\n");
   fprintf(stdout, "  -V(ersion)\r\n");
   return 0;
 }
@@ -300,10 +300,11 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 				return -2;
 			}
 
-			for(tmp=0; tmp<ref->chrom->pnum; tmp++)
-			{
-				printf("nb:%d sn:%d\r\n", ref->chrom->pie[tmp].nb, ref->chrom->pie[tmp].plen);
-			}
+			// debug
+			//for(tmp=0; tmp<ref->chrom->pnum; tmp++)
+			//{
+			//	printf("nb:%d sn:%d\r\n", ref->chrom->pie[tmp].nb, ref->chrom->pie[tmp].plen);
+			//}
 
 			fwrite(ref, sizeof(struct Reference), 1, fp);
 			fwrite(ref->chrom, sizeof(struct chromosome), ref->seqs, fp);

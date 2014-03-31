@@ -8,14 +8,25 @@
 
 #include "types.h"
 
-#define FPSize 12
+#define FPSize 8
 
+#if(FPSize == 4)
+typedef struct Fingerprint4 Fingerprint;
+#elif(FPSize == 8)
+typedef struct Fingerprint8 Fingerprint;
+#elif(FPSize == 12)
 typedef struct Fingerprint12 Fingerprint;
+#else
+#error "Not support FPSize";
+#endif
 
 extern u08 nst_nt4_table[256];
 
 inline FType value(FType a, FType b);
 FType estimate(FType *, FType *, int );
+FType estimateReverse(FType *, FType *, int );
+FType estimate_debug(FType *, FType *, int );
+FType estimateReverse_debug(FType *, FType *, int );
 
 void stampFinger4(FType *, char *, u32);
 void stampFinger8(FType *, char *, u32);

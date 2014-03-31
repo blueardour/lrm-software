@@ -32,14 +32,70 @@ FType estimate(FType * pt1, FType * pt2, int size)
   FType result;
 
 	result = 0;
-	 for(i=0; i<size; i++)
-	 {
-		 result += value(pt1[i], pt2[i]);
-	 }
-	 return result;
+	for(i=0; i<size; i++)
+	{
+		result += value(pt1[i], pt2[i]);
+	}
+	return result;
 }
 
-// calculate 4 forward fingerprint
+FType estimateReverse(FType * pt1, FType * pt2, int size)
+{
+  int i;
+  FType result;
+
+	result = 0;
+	for(i=0; i<size; i++)
+	{
+		result += value(pt1[size-1-i], pt2[i]);
+	}
+	return result;
+}
+
+FType estimate_debug(FType * pt1, FType * pt2, int size)
+{
+  int i;
+  FType result;
+
+	printf("==> estimate_debug: size=%d\r\n", size);
+	result = 0;
+	for(i=0; i<size; i++)
+	{
+		result += value(pt1[i], pt2[i]);
+		printf("==> estimate_debug: %d\r\n", result);
+	}
+	return result;
+}
+
+FType estimateReverse_debug(FType * pt1, FType * pt2, int size)
+{
+  int i;
+  FType result;
+
+	printf("==> estimate_debug: size=%d\r\n", size);
+	result = 0;
+	for(i=0; i<size; i++)
+	{
+		result += value(pt1[size-1-i], pt2[i]);
+		printf("==> estimate_debug: %d\r\n", result);
+	}
+	return result;
+}
+
+
+void stampFinger(FType * print, char * buffer, u32 len)
+{
+#if(FPSize == 4)
+	stampFinger4(print, buffer, len);
+#elif(FPSize == 8)
+	stampFinger8(print, buffer, len);
+#elif(FPSize == 12)
+	stampFinger12(print, buffer, len);
+#else
+	#error "Not support FPSize";
+#endif
+}
+
 void stampFinger4(FType * print, char * buffer, u32 len)
 {
 	static FType finger[4];
@@ -57,7 +113,6 @@ void stampFinger4(FType * print, char * buffer, u32 len)
 			case 'G': finger[2]++; break;
 			case 'T': finger[3]++; break;
 		}
-
 		print[0] += finger[0];
 		print[1] += finger[1];
 		print[2] += finger[2];
@@ -65,7 +120,6 @@ void stampFinger4(FType * print, char * buffer, u32 len)
 	}
 }
 
-// calculate 4 forward fingerprint and 4 backward fingerprint
 void stampFinger8(FType * print, char * buffer, u32 len)
 {
 	static FType finger[8];
@@ -104,9 +158,7 @@ void stampFinger8(FType * print, char * buffer, u32 len)
 }
 
 
-// calculate 4 forward fingerprint and 4 backward fingerprint
-// and addition 
-void stampFinger(FType * print, char * buffer, u32 len)
+void stampFinger12(FType * print, char * buffer, u32 len)
 {
 	static FType stamp[12];
 	static int i;

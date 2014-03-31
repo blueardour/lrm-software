@@ -11,24 +11,24 @@ TARGET= aln sort index printfinger
 
 all: $(LIBS) $(TARGET)
 
-aln: aln.o
+aln: aln.o  fingerprint.h
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
-sort: sort.o
+sort: sort.o  fingerprint.h
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
-index: index.o
+index: index.o  fingerprint.h
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
-printfinger: printfinger.o
+printfinger: printfinger.o  fingerprint.h
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
 
 
 .SUFFIXES:.c .o .cc
 
-.c.o:
+.c.o:	fingerprint.h
 	    $(CC) -c $(CFLAGS) $< -o $@
-.cc.o:
+.cc.o:  fingerprint.h
 	    $(CXX) -c $(CXXFLAGS) $< -o $@
 
 
