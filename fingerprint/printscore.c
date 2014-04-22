@@ -52,10 +52,8 @@ int read_stream(FILE * fp, char * buffer, int * blen)
 
 int main(int argc, char ** argv)
 {
-	FILE * fp;
 	char * buffer, * ptr;
-	int i, len1, len2, size;
-	FType print[FPSize*2], * ptptr;
+	int len1, size;
 
 	size = 1024;
 	buffer = (char *)malloc(size);
@@ -68,39 +66,7 @@ int main(int argc, char ** argv)
 	}
 
 	ptr = buffer;
-	ptptr = print;
-	stampFinger(ptptr, ptr, len1);
-
-	for(i=0; i<FPSize; i++)	fprintf(stdout, "%d ", ptptr[i]);
-	fprintf(stdout, "\r\n");
-
-	if(argc == 2)
-	{
-		fp = fopen(argv[1], "r");
-		if(fp == NULL)
-		{
-			printf("Can open file: %s\r\n", argv[1]);
-			return -1;
-		}
-
-		len2 = read_stream(fp, buffer, &size);
-		fclose(fp);
-
-		if(len1 != len2)
-		{
-			free(buffer);
-			printf("Length dismatch\r\n");
-			return -1;
-		}
-
-		ptptr = print + FPSize;
-		stampFinger(ptptr, ptr, len2);
-		for(i=0; i<FPSize; i++)	fprintf(stdout, "%d ", ptptr[i]);
-		fprintf(stdout, "\r\n");
-
-		fprintf(stdout, "Esitmate: %d \r\n", estimate(ptptr - FPSize, ptptr, FPSize));
-		fprintf(stdout, "EsitmateReverse: %d \r\n", estimateReverse(ptptr - FPSize, ptptr, FPSize));
-	}
+	fprintf(stdout, "Score: %d\r\n", SmithWaterman(ptr, len1));
 
 	free(buffer);
 	return 0;

@@ -8,7 +8,7 @@
 
 #include "aln.h"
 
-#define VERSION "2.0"
+#define VERSION "1.0"
 #define PROGRAM "fblra aln"
 
 
@@ -18,7 +18,7 @@ static int print_help()
 	fprintf(stderr, "ver (%s):\r\n", VERSION);
 	fprintf(stderr, "  -V(ersion)\r\n");
 	fprintf(stderr, "  -v(erbose)\r\n");
-	fprintf(stderr, "  -r(eference) str *\r\n");
+	fprintf(stderr, "  -i(ndex) str *\r\n");
 	fprintf(stderr, "  -q(urey) str *\r\n");
 	fprintf(stderr, "  -s(pt) str *\n");
 	fprintf(stderr, "  -o[utput] str *\r\n");
@@ -30,15 +30,14 @@ static void dump_Options(struct ALN_Options * op)
 {
 	fprintf(stderr, "%s ", PROGRAM);
 	fprintf(stderr, "ver (%s):\r\n", VERSION);
-	fprintf(stderr, "  -verbose 0x%02x\r\n", op->verbose);
-	fprintf(stderr, "  -reference %s\r\n", op->prefix);
+	fprintf(stderr, "  -index %s\r\n", op->prefix);
 	fprintf(stderr, "  -read %s\r\n", op->read);
 	fprintf(stderr, "  -pac %s\r\n", op->pac);
 	fprintf(stderr, "  -si %s\r\n", op->si);
 	fprintf(stderr, "  -spt %s\r\n", op->spt);
-	fprintf(stderr, "  -hash %s\r\n", op->hash);
 	fprintf(stderr, "  -sam %s\r\n", op->sam);
 	fprintf(stderr, "  -threshold %d\r\n", op->threshold);
+	fprintf(stderr, "  -verbose 0x%02x\r\n", op->verbose);
 }
 
 void init_ALN_Options(struct ALN_Options * op)
@@ -55,7 +54,6 @@ void init_ALN_Options(struct ALN_Options * op)
 	op->prefix = NULL;
 	op->dir = NULL;
 
-	op->hash = NULL;
 	op->si = NULL;
 	op->pac = NULL;
 	op->spt = NULL;
@@ -67,8 +65,6 @@ static int format_Options(struct ALN_Options * op)
 { 
 	int len;
 	char * ptr;
-
-	if(op->spt == NULL || op->read == NULL) return -1;
 
 	ptr = op->spt + strlen(op->spt) - 3;
 	if(strcmp(ptr, "spt") != 0)
@@ -110,10 +106,6 @@ static int format_Options(struct ALN_Options * op)
 	strcat(op->pac, ".pac");
 	strcat(op->si, ".si");
 
-	op->hash = (char *)malloc(strlen(op->spt) + 5);
-	strcpy(op->hash, op->spt);
-	strcat(op->hash, ".hsh");
-
 	if(op->verbose & 0x80) op->verbose = 0x80;
 	return 0;
 }
@@ -121,8 +113,9 @@ static int format_Options(struct ALN_Options * op)
 static int load_spt(struct ALN_Options * op)
 {
 	FILE * fp;
+	Fingerprint lpt, spt;
+	int offset;
 	u32 i;
-	struct SPT_Header header;
 
 	fp = fopen(op->spt, "rb");
 	if(fp == NULL) 
@@ -131,11 +124,14 @@ static int load_spt(struct ALN_Options * op)
 		return -2;
 	}
 
-	if(fread(&header, sizeof(header), 1, fp) != 1) return -2;
-	op->items = header.items;
-	op->length = header.length;
-	op->interval = header.length;
-	op->band = header.band;
+	fseek(fp, 20, SEEK_SET);
+	if(fread(&op->items, sizeof(op->items), 1, fp) != 1) return -2;
+	if(fread(lpt.print, sizeof(FType), FPSize, fp) != FPSize) return -2;
+	if(fread(spt.print, sizeof(FType), FPSize, fp) != FPSize) return -2;
+	if(fread(&op->length, sizeof(op->length), 1, fp) != 1) return -2;
+	if(fread(&op->interval, sizeof(op->interval), 1, fp) != 1) return -2;
+	if(fread(&op->band, sizeof(op->band), 1, fp) != 1) return -2;
+	if(fread(op->pattern, 1, 4, fp) != 4) return -2;
 
 	fprintf(stderr, "> Going to read %d fingerprint. len:%d interval:%d band:%d\r\n", \
 					op->items, op->length, op->interval, op->band);
@@ -146,33 +142,15 @@ static int load_spt(struct ALN_Options * op)
 		return -3;
 	}
 
-	fseek(fp, sizeof(struct SPT_Header), SEEK_SET);
+	offset = sizeof(FType)*FPSize*2 + sizeof(u32)*4 + 40;
+	fseek(fp, offset, SEEK_SET);
 	for(i=0; i<op->items; i++)
 	{
-		if(fread(op->pt + i, sizeof(Fingerprint), 1, fp) != 1) { free(op->pt); return -2; }
+		if(fread(op->pt + i, sizeof(Fingerprint), 1, fp) != 1) return -2;
 	}
 
 	fprintf(stderr, "> Done\r\n");
 	fclose(fp);
-
-	fp = fopen(op->hash, "rb");
-	if(fp == NULL) 
-	{
-		fprintf(stderr, "Database cannot open:%s\r\n", op->hash);
-		free(op->pt); return -2;
-	}
-
-	fseek(fp, 0, SEEK_END);
-	i = ftell(fp);
-	i = i / 16;
-	op->index = (struct Index_Hash *) malloc(i * sizeof(struct Index_Hash));
-	fprintf(stderr, "> Going to read hash table (%d items) \r\n", i);
-	if(fread(op->index, sizeof(struct Index_Hash), i, fp) != i)
-	{
-		fclose(fp); free(op->index); free(op->pt); return -2;
-	}
-	fprintf(stderr, "> Done\r\n");
-
 	return 0;
 }
 
@@ -296,10 +274,9 @@ static int align_read(struct ALN_Options * op)
 	char sn[100];
 	int tmp;
 	u32 i, begin, end;
-	u32 score;
-	Alignment align;
-	FType print[FPSize];
-	Index_Hash hash, * hptr;
+	u32 score[2];
+	struct cal cals;
+	FType print[FPSize*2];
 
 	read = fopen(op->read, "r");
 	if(read == NULL) 
@@ -319,6 +296,8 @@ static int align_read(struct ALN_Options * op)
 	end = op->items;
 	buffer = (char *)malloc(op->length + 1);
 	buffer[op->length] = 0;
+	cals.l = cals.r = 0;
+	cals.orient = 0;
 	while(1)
 	{
 		if(feof(read) != 0) break;
@@ -332,21 +311,27 @@ static int align_read(struct ALN_Options * op)
 		if(read2b_util(read, '>', 1, buffer, op->length) != 0) break;
 
 		stampFinger(print, buffer, op->length);
-
-		// forward-forward mapping
-		hash.key = getKey(print);
-		hptr = (Index_Hash *)bsearch(&hash, op->index, op->size, sizeof(Index_Hash), compare_hash);
-
-		begin = hptr->left; end = hptr->right;
+		
+		cals.score = -1;
 		for(i=begin; i<end; i++)
 		{
+			score[0] = estimate(print, op->pt[i].print, FPSize);
+			score[1] = estimateReverse(print, op->pt[i].print, FPSize);
+			if(cals.score > score[0])
+			{
+				cals.score = score[0];
+				cals.l = op->pt[i].pos;
+				cals.orient = 0;
+			}
+			if(cals.score > score[1])
+			{
+				cals.score = score[1];
+				cals.l = op->pt[i].pos;
+				cals.orient = 1;
+			}
 		}
 
-		// forward-reverse mapping
-
-
-
-
+		fprintf(sam, "%d\t%d\t%d\t%s\r\n", cals.l, cals.score, cals.orient, sn);
 	}
 
 	fclose(sam);
@@ -403,14 +388,14 @@ int main(int argc, char ** argv)
 
   options = 0;
   init_ALN_Options(&op);
-  while( (c=getopt(argc,argv,"o:q:s:r:t:d:v:V")) >=0)
+  while( (c=getopt(argc,argv,"o:q:s:i:t:d:v:V")) >=0)
   {
     switch(c)
     {
       case 'o': options |= 0x01; op.sam = optarg; break;
       case 'q': options |= 0x02; op.read = optarg; break;
       case 's': options |= 0x04; op.spt = optarg; break;
-      case 'r': options |= 0x08; op.prefix = optarg; break;
+      case 'i': options |= 0x08; op.prefix = optarg; break;
       case 'd': options |= 0x00; op.dir = optarg; break;
       case 't': options |= 0x00; op.threshold = atoi(optarg); break;
       case 'v': options |= 0x00; op.verbose = atoi(optarg); break;

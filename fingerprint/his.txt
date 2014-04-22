@@ -1,0 +1,500 @@
+    4  make
+    5  vim makefile 
+    6  ls
+    7  vim makefile 
+    8  vim makefile 
+    9  make
+   10  vim makefile 
+   11  make
+   12  make
+   13  vim makefile 
+   14  make
+   15  vim makefile 
+   16  make
+   17  vim makefile 
+   18  make
+   19  vim makefile 
+   20  make clean
+   21  vim makefile 
+   22  make clean
+   23  vim makefile 
+   24  make clean
+   25  echo $$
+   26  make clean
+   27  make
+   28  make clean
+   29  vim makefile 
+   30  ls
+   31  rm aln.d 
+   32  make clean
+   33  vim makefile 
+   34  make clean
+   35  rm *.d
+   36  make clean
+   37  vim makefile 
+   38  make aln.d
+   39  vim makefile 
+   40  make aln.d
+   41  vim makefile 
+   42  vim makefile 
+   43  make aln.d
+   44  vim makefile 
+   45  ll
+   46  vim makefile 
+   47  vim aln.d 
+   48  ls
+   49  vim makefile 
+   50  ls
+   51  vim makefile 
+   52  make sort.d
+   53  vim makefile 
+   54  make clean
+   55  ls
+   56  rm *.d
+   57  make
+   58  vim makefile 
+   59  man set
+   60  vim makefile 
+   61  make
+   62  vim makefile 
+   63  vim makefile 
+   64  make
+   65  vim makefile 
+   66  make
+   67  vim makefile 
+   68  make
+   69  make clean
+   70  make 
+   71  vim makefile 
+   72  make
+   73  vim makefile 
+   74  make
+   75  vim makefile 
+   76  make clean
+   77  vim makefile 
+   78  vim makefile 
+   79  vim makefile 
+   80  make clean
+   81  make 
+   82  make clean
+   83  vim makefile 
+   84  make clean
+   85  make
+   86  vim makefile 
+   87  make clean
+   88  make
+   89  make clean
+   90  vim makefile 
+   91  make
+   92  ls
+   93  ls
+   94  ls
+   95  exit
+   96  cd workspace/lrm/lrm-software/
+   97  ls
+   98  cd fingerprint/
+   99  ls
+  100  ls
+  101  rm autoscan.log configure.scan 
+  102  ls
+  103  ls
+  104  cd 
+  105  cd workspace/
+  106  ls
+  107  mkdir GnuProjDemo
+  108  cd GnuProjDemo/
+  109  vim demo.sh
+  110  wget http://content.hccfl.edu/pollock/AUnix2/gnu-project-demo.txt
+  111  ls
+  112  mv gnu-project-demo.txt gnu-project-demo.sh
+  113  vim gnu-project-demo.sh 
+  114  chmod +x gnu-project-demo.sh 
+  115  ./gnu-project-demo.sh 
+  116  vim gnu-project-demo.sh 
+  117  vim gnu-project-demo.sh 
+  118  ./gnu-project-demo.sh 
+  119  vim gnu-project-demo.sh 
+  120  ./gnu-project-demo.sh 
+  121  bash gnu-project-demo.sh 
+  122  vim gnu-project-demo.sh 
+  123  bash gnu-project-demo.sh 
+  124  ./gnu-project-demo.sh 
+  125  vim gnu-project-demo.sh 
+  126  dos2linux
+  127  dos2unix 
+  128  sudo apt-get install dos2unix 
+  129  sudo apt-get install dos2unix 
+  130  dos2unix 
+  131  dos2unix gnu-project-demo.sh 
+  132  ls
+  133  rm -rf hello-1.0/
+  134  ls
+  135  ./gnu-project-demo.sh 
+  136  ls
+  137  vim gnu-project-demo.sh 
+  138  ls
+  139  mkdir hello-1.0
+  140  cd hello-1.0/
+  141  mkdir src doc
+  142  cat > src/hello.c <<EOF
+  143  /* Hello World program.
+  144   * Written 2/2005 by Ima Koder, Tampa Florida USA.
+  145   */
+  146  int main ( void )
+  147  {
+  148      printf( "Hey there, world!\n" );
+  149      return 0;
+  150  }
+  151  EOF
+  152  cat > Makefile.am <<EOF
+  153  EXTRA_DIST = configure doc/hello.man
+  154  SUBDIRS = doc src
+  155  EOF
+  156  ls
+  157  vim Makefile.am 
+  158  ls
+  159  rm Makefile.am 
+  160  ls
+  161  ls src/
+  162  autoscan 
+  163  ls
+  164  mv configure.scan configure.in
+  165  vim configure.in 
+  166  aclocal
+  167  ls
+  168  vim configure.in 
+  169  autoconf 
+  170  vim configure.in 
+  171  vim configure.in 
+  172  ls
+  173  ls
+  174  exit
+  175  exit
+  176  ls
+  177  ls
+  178  ls bin/
+  179  ls hello-1.0/
+  180  ls
+  181  rm -rf bin/ hello-1.0/src/
+  182  ls
+  183  rm -rf hello-1.0/
+  184  ls
+  185  rm -rf share/
+  186  ls
+  187  cd workspace/
+  188  ls
+  189  ls GnuProjDemo/
+  190  ls
+  191  cd lrm/
+  192  ls
+  193  ls
+  194  ls database/
+  195  ls
+  196  ls database/hg19/
+  197  ls
+  198  mount.nfs 219.219.220.139:/workspace/zynq/rootfs /home/
+  199  exit
+  200  ks
+  201  ls
+  202  cd workspace/
+  203  ls
+  204  ls
+  205  cd lrm/
+  206  ls
+  207  cd lrm-software/fingerprint/
+  208  ls
+  209  ls
+  210  vim aln.c 
+  211  ls
+  212  cp aln.c aln.c-bak
+  213  vim aln.c
+  214  ls
+  215  cd workspace/
+  216  ls
+  217  ;s
+  218  ls
+  219  llll
+  220  ls
+  221  ls
+  222  ping 219.219.220.249
+  223  vim /home/mkkopter/.vimrc 
+  224  ls
+  225  cd workspace/lrm/lrm-software/fingerprint/
+  226  ls
+  227  vim aln.h 
+  228  make
+  229  make
+  230  vim aln.h 
+  231  make
+  232  vim aln.h 
+  233  make
+  234  make
+  235  make
+  236  make
+  237  man fscanf
+  238  make
+  239  ls
+  240  vim fingerprint.sh 
+  241  vim fingerprint.sh 
+  242  ls
+  243  ./fingerprint.sh 
+  244  vim fingerprint.sh 
+  245  ls index
+  246  ls
+  247  vim fingerprint.sh 
+  248  vim fingerprint.sh 
+  249  ls
+  250  vim aln.c
+  251  ls
+  252  ls
+  253  vim aln.c
+  254  ls
+  255  vim aln.c
+  256  make
+  257  vim aln.c
+  258  ls
+  259  cd -
+  260  cd -
+  261  cd ../../database/human_g1k_v37/3000/
+  262  ls
+  263  bwa
+  264  bwa index
+  265  ls
+  266  ls
+  267  ll
+  268  source /etc/bash.personal 
+  269  ls
+  270  mkdir bwa-index
+  271  ls
+  272  bwa index -a bwtsw reference.fa
+  273  top
+  274  free -h
+  275  free -G
+  276  free
+  277  bwa index -a bwtsw reference.fa
+  278  ls
+  279  mv reference.fa.* bwa-index/
+  280  ls
+  281  mv read.sam fingerprint.sam
+  282  ls
+  283  bwa
+  284  bwa bwasw
+  285  bwa bwasw bwa-index/reference.fa read.fa read.fa 2>bwa.log 1>bwa.sam
+  286  ls
+  287  cat bwa.log 
+  288  ls
+  289  ls
+  290  vim bwa.sam 
+  291  ls
+  292  ls
+  293  cd -
+  294  vim printfinger.c 
+  295  ls
+  296  cd -
+  297  head read.sam 
+  298  ls
+  299  ls
+  300  head -2  read.fa 
+  301  head -2  read.fa  | printffinger
+  302  head -2  read.fa  | printfinger
+  303  ls
+  304  ls
+  305  cat fingerprint.sam 
+  306  cd -
+  307  make
+  308  make
+  309  make
+  310  make
+  311  make
+  312  make atoi
+  313  make
+  314  make
+  315  make
+  316  vim aln.c
+  317  index
+  318  aln
+  319  vim index.c 
+  320  make
+  321  vim aln.h 
+  322  ls
+  323  head -n 100aln.c
+  324  head -n 100 aln.c
+  325  head -n 100 aln.c
+  326  head -n 100 aln.c
+  327  head -n 100 aln.c
+  328  ls
+  329  make
+  330  aln
+  331  vim aln.c
+  332  make
+  333  vim aln.c
+  334  make
+  335  vim aln.c
+  336  make
+  337  vim aln.c
+  338  make
+  339  ls
+  340  cat fingerprint.
+  341  cd -
+  342  cat fingerprint.sam 
+  343  cd -
+  344  vim aln.c
+  345  ls
+  346  cd -
+  347  ls
+  348  head -n 6 read.fa 
+  349  vim 130127954_130130953-read.fa
+  350  ls
+  351  cut -c 130128185-130129184 index/reference.fa.pac | printfinger -r
+  352  cd -
+  353  vim printfinger.c 
+  354  vim aln.c
+  355  make
+  356  cd -
+  357  cut -c 130128185-130129184 index/reference.fa.pac | printfinger
+  358  cut -c 130128185-130131184 index/reference.fa.pac | printfinger
+  359  cut -c 130128185-130131184 index/reference.fa.pac | printfinger 130127954_130130953-read.fa 
+  360  cd -
+  361  vim printfinger.c 
+  362  make
+  363  cd -
+  364  cut -c 130128185-130131184 index/reference.fa.pac | printfinger 130127954_130130953-read.fa 
+  365  cd -
+  366  ls
+  367  cp printfinger.c printscore.c
+  368  ls
+  369  vim printscore.c 
+  370  ls
+  371  exit
+  372  cd workspace/lrm/lrm-software/fingerprint/
+  373  ls
+  374  ls
+  375  vim aln.c
+  376  vim aln.c
+  377  vim index.c 
+  378  ls
+  379  ls
+  380  cd /workspace/lrm/database/human_g1k_v37/demo2000
+  381  ls
+  382  ls
+  383  ll
+  384  ll
+  385  ls
+  386  ls
+  387  ll
+  388  vim /etc/bash.personal 
+  389  source /etc/bash.personal 
+  390  ls
+  391  ll
+  392  ls
+  393  vim /home/mkkopter/.bashrc 
+  394  ls
+  395  vim /etc/bash.personal 
+  396  ls
+  397  ll
+  398  ll -h
+  399  ls
+  400  cd ..
+  401  ls
+  402  mkdir demo3000
+  403  ls
+  404  ls
+  405  index
+  406  index -l 3000 0i 8 -b 10 -r demo4000/reference.fa 
+  407  index -l 3000 0i 8 -b 10 -r demo4000/reference.fa -v
+  408  index -l 3000 0i 8 -b 10 -r demo4000/reference.fa -v 0
+  409  index -l 3000 -i 8 -b 10 -r demo4000/reference.fa -v 0
+  410  index -l 3000 -i 8 -b 10 -r demo4000/reference.fa
+  411  cd demo4000/
+  412  index -l 3000 -i 8 -b 10 -rreference.fa
+  413  index -l 3000 -i 8 -b 10 -pindx -rreference.fa
+  414  index -l 3000 -i 8 -b 10 -d index -rreference.fa
+  415  sort
+  416  sort -u index8/reference.fa.uspt -p actg
+  417  ls
+  418  ls
+  419  cd ..
+  420  ls
+  421  rm  -rf demo2000/ demo4000/ demo3000/
+  422  ls
+  423  cd ..
+  424  ls
+  425  cd -
+  426  ls
+  427  ls
+  428  ls
+  429  cd ../../lrm-software/fingerprint/
+  430  ls
+  431  vim aln.c
+  432  ls
+  433  cd -
+  434  cd -
+  435  cd /workspace/lrm/database/human_g1k_v37/3000/
+  436  ls
+  437  vill -h
+  438  ll -h
+  439  ls index/
+  440  index -l 3000 -i 8 -b 10 -d index -r reference.fa 
+  441  index -l 3000 -i 8 -b 10 -d index -r reference.fa -v3
+  442  ls
+  443  aln
+  444  ls
+  445  time aln -d reference.fa -s index/reference.fa.uspt -r read.fa -o read.sam
+  446  time aln -d reference.fa -s index/reference.fa.uspt -r read.fa -o read.sam -v3
+  447  ls
+  448  ll
+  449  vim read.sam 
+  450  ls
+  451  cd -
+  452  ls
+  453  vim aln.c
+  454  make
+  455  cd -
+  456  ls
+  457  ls
+  458  time aln -d reference.fa -s index/reference.fa.uspt -r read.fa -o read.sam -v3
+  459  ls
+  460  cd -
+  461  vim aln.c
+  462  make
+  463  cd -
+  464  rm read.sam 
+  465  time aln -d reference.fa -s index/reference.fa.uspt -r read.fa -o fingerprint.sam -v3
+  466  ls
+  467  cd -
+  468  ls
+  469  vim aln.c
+  470  make
+  471  ls
+  472  ls
+  473  vim aln.c
+  474  make
+  475  vim aln.c
+  476  cd -
+  477  time aln -d reference.fa -s index/reference.fa.uspt -r read.fa -o fingerprint.sam -v5
+  478  ls
+  479  ls index/
+  480  time aln -d reference.fa -s index/reference.fa.uspt -r read.fa -o fingerprint.sam
+  481  time aln -d reference.fa -s index/reference.fa.uspt -d index -r read.fa -o fingerprint.sam
+  482  vim aln.c
+  483  cd -
+  484  vim aln.c
+  485  vim aln.h
+  486  vim aln.c
+  487  cd -
+  488  time aln -d reference.fa -s index/reference.fa.uspt -d index -r read.fa -o fingerprint.sam
+  489  time aln -i  index/reference.fa -s index/reference.fa.uspt -q read.fa -o fingerprint.sam
+  490  time aln -i  index/reference.fa -s index/reference.fa.uspt -q read.fa -o fingerprint.sam
+  491  time aln -i  index/reference.fa -s index/reference.fa.uspt -q read.fa -o fingerprint.sam
+  492  time aln -i  index/reference.fa -s index/reference.fa.uspt -q read.fa -o fingerprint.sam
+  493  time aln -i  index/reference.fa -s index/reference.fa.uspt -q read.fa -o fingerprint.sam
+  494  time aln -i  index/reference.fa -s index/reference.fa.uspt -q read.fa -o fingerprint.sam -v5
+  495  exit
+  496  ls
+  497  cd workspace/lrm/lrm-software/
+  498  ls
+  499  cd fingerprint/
+  500  ls
+  501  ls
+  502  vim aln.c
+  503  history >  his.txt

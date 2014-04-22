@@ -24,4 +24,5 @@ int read2f_util(FILE *, char, u08, FILE *, int);
 int read2b_util(FILE *, char, u08, char *, int);
 u32 newRand(u32 range, int seed);
 
+
 #endif

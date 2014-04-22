@@ -3,12 +3,13 @@
 //  description: sort fingerprint database of the reference
 //  version: 1.0
 //	date: 2014-03-12
+//	date: 2014-04-22 ver2.0
 //  ******************************************************************//
 
 
 #include "sort.h"
 
-#define VERSION "1.0"
+#define VERSION "2.0"
 #define PROGRAM "fblra sort"
 
 
@@ -19,17 +20,19 @@ void init_Sort_Options(struct Sort_Options * op)
 	op->pattern = NULL;
 	op->uspt = NULL;
 	op->spt = NULL;
+	op->info = NULL;
+	op->hash = NULL;
 }
 
 static int print_help()
 {
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
-	fprintf(stdout, "  -v[erbose]\r\n");
-	fprintf(stdout, "  -u[spt] str *\r\n");
-	fprintf(stdout, "  -p[attern] str *\r\n");
-	fprintf(stdout, "  -s[pt] str\r\n");
+	fprintf(stdout, "  -v[erbose] num\r\n");
 	fprintf(stdout, "  -V(ersion)\r\n");
+	fprintf(stdout, "  -u[spt] str *\r\n");
+	fprintf(stdout, "  -p[attern] str \r\n");
+	fprintf(stdout, "  -s[pt] str\r\n");
 	return 0;
 }
 
@@ -41,42 +44,119 @@ static void dump_Options(struct Sort_Options * op)
 	fprintf(stdout, "  -pattern %s\r\n", op->pattern);
 	fprintf(stdout, "  -uspt %s\r\n", op->uspt);
 	fprintf(stdout, "  -spt %s\r\n", op->spt);
+	fprintf(stdout, "  -info %s\r\n", op->info);
+	fprintf(stdout, "  -hash %s\r\n", op->hash);
 }
 
 static int format_Options(struct Sort_Options * op)
 { 
-	if(op->pattern == NULL || op->uspt == NULL) return -1;
+	if(op->uspt == NULL) return -1;
+
+	if(FPSize > 10) return -2;
 
 	if(op->spt == NULL)
 	{
-		op->spt = (char *)malloc(strlen(op->uspt) + 10);
+		op->spt = (char *)malloc(strlen(op->uspt) + 5);
 		strcpy(op->spt, op->uspt);
-		strcat(op->spt, "-");
-		strncat(op->spt, op->pattern, 4);
 		strcat(op->spt, ".spt");
 	}
+
+	op->info = (char *)malloc(strlen(op->spt) + 5);
+	strcpy(op->info, op->spt);
+	strcat(op->info, ".inf");
+
+	op->hash = (char *)malloc(strlen(op->spt) + 5);
+	strcpy(op->hash, op->spt);
+	strcat(op->hash, ".hsh");
 
 	if(op->verbose & 0x80) op->verbose = 0x80;
 
 	return 0;
 }
 
+
+static int build_hash(struct Index_Key * index, u32 size, struct Sort_Options * op)
+{
+	FILE * info, * hash;
+	struct Index_Hash * table;
+	u32 table_size;
+	u32 i, j;
+
+	info = fopen(op->info, "wb");
+	if(info == NULL)
+	{
+		fprintf(stderr, "Cannot create file:%s\r\n", op->info);
+		return -2;
+  	}
+
+	hash = fopen(op->hash, "wb");
+	if(hash == NULL)
+	{
+		fprintf(stderr, "Cannot create file:%s\r\n", op->hash);
+		return -2;
+  	}
+
+	table_size = 60000;
+	table = (struct Index_Hash *) malloc(sizeof(struct Index_Hash) * table_size);
+	if(table == NULL)
+	{
+		fprintf(stderr, "memories malloc failed \r\n");
+		return -5;
+	}
+
+	table[0].key = index[0].key;
+	table[0].left = 0;
+	for(i=0,j=0; i<size; i++)
+	{
+		fprintf(info, "%016lx\r\n", index[i].key);
+
+		if(table[j].key != index[i].key)
+		{
+			table[j++].right = i;
+
+			if(j == table_size)
+			{
+				table_size += 60000;
+				table = (struct Index_Hash *)realloc(table, sizeof(struct Index_Hash) * table_size);
+			}
+			table[j].left = i;
+			table[j].key = index[i].key;
+		}
+	}
+	table[j++].right = i;
+	
+	fprintf(stdout, "Hash items: %d \r\n", j);
+
+	if(fwrite(table, sizeof(struct Index_Hash), j, hash) != j)
+	{
+		fprintf(stderr, "hash file write failed \r\n");
+		return -5;
+	}
+
+	free(table);
+	fclose(hash);
+	fclose(info);
+	return 0;
+}
+
+static int compare_key(const void * a, const void * b)
+{
+	return ((struct Index_Key *) a)->key - ((struct Index_Key *) b)->key;
+}
+
+
 int sort_fingerprint(struct Sort_Options * op)
 {
-	int tmp, shift, offset;
+	char c;
 	FILE * fp, * database;
-	Fingerprint pt, lpt, spt;
-	u32 items;
-	u32 count;
-	u32 length, band, interval;
-	u32 * sortPtr;
+	Fingerprint pt;
 	u32 i;
+	struct SPT_Header header;
+	struct Index_Key * index;
 	
 	fp = database = NULL;
-	sortPtr = NULL;
 
-	tmp = format_Options(op);
-	if(tmp < 0) return tmp;
+	if(format_Options(op) < 0) return -1;
 
 	fprintf(stdout, "===> Dump parameters...%d\r\n", op->verbose & 0x80);
 	if(op->verbose & 0x80)
@@ -88,22 +168,13 @@ int sort_fingerprint(struct Sort_Options * op)
 	if(op->verbose & 0x01)
 	{
 		fp = fopen(op->uspt, "rb");
-  	if(fp == NULL)
-  	{
-  	  fprintf(stderr, "Database cannot open:%s\r\n", op->uspt);
-  	  return -2;
-  	}
+  		if(fp == NULL)
+  		{
+  		  fprintf(stderr, "Database cannot open:%s\r\n", op->uspt);
+  		  return -2;
+  		}
 
-		tmp = 0;
-		fseek(fp, 20, SEEK_SET);
-		if(fread(&items, sizeof(items), 1, fp) != 1) tmp++;
-		if(fread(lpt.print, sizeof(FType), FPSize, fp) != FPSize) tmp++;
-		if(fread(spt.print, sizeof(FType), FPSize, fp) != FPSize) tmp++;
-		if(fread(&length, sizeof(length), 1, fp) != 1) tmp++;
-		if(fread(&interval, sizeof(interval), 1, fp) != 1) tmp++;
-		if(fread(&band, sizeof(band), 1, fp) != 1) tmp++;
-
-		if(tmp != 0)
+		if(fread(&header, sizeof(struct SPT_Header), 1, fp) != 1)
 		{
 			fprintf(stderr, "Loading uspt file failed\r\n");
 			fclose(fp);
@@ -111,112 +182,84 @@ int sort_fingerprint(struct Sort_Options * op)
 		}
 		else
 		{
-			fprintf(stdout, "> %d items read. len:%d interval:%d band:%d\r\n", items, length, interval, band);
+			fprintf(stdout, "> %d items read. len:%d interval:%d band:%d\r\n", \
+						   header.items, header.length, header.interval, header.band);
+
+			if(op->verbose & 0x02)
+			{
+				fprintf(stdout, " Is that correct? [y/n]");
+				do { c=getchar(); } while(c != 'y' && c!= 'n');
+				if(c == 'n') { fclose(fp); return 0; }
+			}
 		}
 
-		shift = 0;
-		for(tmp=0; tmp<strlen(op->pattern); tmp++)
-		{
-			if(op->pattern[tmp] == 'A')	shift = 0;
-			else if(op->pattern[tmp] == 'C') shift = 1;
-			else if(op->pattern[tmp] == 'G') shift = 2;
-			else if(op->pattern[tmp] == 'T') shift = 3;
-			else continue;
-			break;
-		}
-
-		fprintf(stdout, "> Major Index:%c, max:%d, min:%d\r\n", op->pattern[tmp], \
-						lpt.print[shift], spt.print[shift]);
-
-		sortPtr = (u32 *) malloc(sizeof(u32)*(lpt.print[shift] - spt.print[shift] + 1));
-		memset(sortPtr, 0, sizeof(u32)*(lpt.print[shift] - spt.print[shift] + 1));
-
-		offset = sizeof(u32) * 4 + sizeof(FType) * FPSize * 2 + 40;
-		if(fseek(fp, offset, SEEK_SET) != 0)
+		if(fseek(fp, sizeof(struct SPT_Header), SEEK_SET) != 0)
 		{
 			fprintf(stderr, "Fseek uspt/spt file error\r\n");
 			fclose(fp);
 			return -4;
 		}
 
-		for(i=0; i<items; i++)
+		index = (struct Index_Key *) malloc(sizeof(struct Index_Key) * header.items);
+		if(index == NULL)
 		{
-			if(fread(&pt, sizeof(pt), 1, fp) != 1)
-			{
-				fprintf(stderr, "Read fingerprint error\r\n");
-				fclose(fp);
-				return -4;
-			}
-
-			if(pt.print[shift] >= spt.print[shift] && pt.print[shift] <= lpt.print[shift])
-				sortPtr[pt.print[shift] - spt.print[shift]]++;
-			else
-			{
-				fprintf(stderr, "Unexpected fingerprint, cur:%d\r\n", pt.print[shift]);
-				fclose(fp);
-				return -4;
-			}
-		}
-
-		for(i=1; i<lpt.print[shift] - spt.print[shift] + 1; i++)
-		{
-			sortPtr[i] = sortPtr[i] + sortPtr[i-1];
-		}
-
-		database = fopen(op->spt, "wb");
-  	if(database == NULL)
-  	{
-  	  fprintf(stderr, "Cannot create file:%s\r\n", op->spt);
-  	  return -2;
-  	}
-
-		fseek(database, 20, SEEK_SET);
-		fwrite(&items, sizeof(items), 1, database);
-		fwrite(lpt.print, sizeof(FType), FPSize, database);
-		fwrite(spt.print, sizeof(FType), FPSize, database);
-		fwrite(&length, sizeof(length), 1, database);
-		fwrite(&interval, sizeof(interval), 1, database);
-		fwrite(&band, sizeof(band), 1, database);
-
-		fwrite(op->pattern, 1, 4, database);
-
-		tmp = sizeof(Fingerprint);
-		if(fseek(database, offset + items * sizeof(Fingerprint), SEEK_SET) != 0)
-		{
-			fprintf(stderr, "Fseek in spt file error.(%d)\r\n", offset + items * tmp);
+			fprintf(stderr, "Malloc memories failed \r\n");
 			fclose(fp);
-			fclose(database);
 			return -5;
 		}
 
-		fseek(fp, offset, SEEK_SET);
-		for(i=0; i<items; i++)
+		for(i=0; i<header.items; i++)
 		{
 			if(fread(&pt, sizeof(pt), 1, fp) != 1)
 			{
 				fprintf(stderr, "Read fingerprint error\r\n");
-				fclose(fp);
+				fclose(fp); free(index);
 				return -4;
 			}
 
-			count = --sortPtr[pt.print[shift] - spt.print[shift]];
-			if(count >= 0 && fseek(database, offset + count * sizeof(Fingerprint), SEEK_SET) == 0)
+			index[i].key = getKey(pt.print);
+		}
+
+		qsort(index, header.items, sizeof(struct Index_Key), compare_key);
+
+		database = fopen(op->spt, "wb");
+  		if(database == NULL)
+  		{
+  		  fprintf(stderr, "Cannot create file:%s\r\n", op->spt);
+  		  return -2;
+  		}
+
+		fwrite(&header, sizeof(struct SPT_Header), 1,  database);
+
+		for(i=0; i<header.items; i++)
+		{
+			if(fseek(fp, sizeof(struct SPT_Header) + index[i].i * sizeof(pt), SEEK_SET) == -1)
 			{
-				fwrite(&pt, sizeof(pt), 1, database);
+				free(index); fclose(fp); fclose(database); return -6;
 			}
-			else
+			if(fread(&pt, sizeof(pt), 1, fp) != 1)
 			{
-				fprintf(stderr, "Re-squence uspt file error \r\n");
-				fclose(fp);
-				fclose(database);
-				return -6;
+				free(index); fclose(fp); fclose(database); return -6;
+			}
+
+			if(fseek(database, sizeof(struct SPT_Header) + i * sizeof(pt), SEEK_SET) == -1)
+			{
+				free(index); fclose(fp); fclose(database); return -6;
+			}
+			if(fwrite(&pt, sizeof(pt), 1, database) != 1)
+			{
+				free(index); fclose(fp); fclose(database); return -6;
 			}
 		}
+
+		build_hash(index, header.items, op);
+
+		free(index);
 		fclose(fp);
 		fclose(database);
 	}
 
-  return 0;
+	return 0;
 }
 
 
@@ -230,20 +273,20 @@ int main(int argc, char ** argv)
 
   init_Sort_Options(&op);
   options = 0;
-  while( (c=getopt(argc,argv,"p:u:s:v:V")) >=0)
+  while( (c=getopt(argc,argv,"u:p:s:v:V")) >=0)
   {
     switch(c)
     {
       case 'u': options++; op.uspt = optarg; break;
-      case 'p': options++; op.pattern = optarg; break;
-      case 'v': op.verbose = atoi(optarg); break;
+      case 'p': op.pattern = optarg; break;
       case 's': op.spt = optarg; break;
+      case 'v': op.verbose = atoi(optarg); break;
       case 'V': fprintf(stdout, "%s\r\n", VERSION); return 0;
       default: return print_help(getFileName(argv[0]));
     }
   }
 
-  if(options < 2) return print_help(getFileName(argv[0]));
+  if(options < 1) return print_help(getFileName(argv[0]));
 
   return sort_fingerprint(&op);
 }

@@ -10,21 +10,46 @@
 #include "types.h"
 #include "utils.h"
 #include "fingerprint.h"
+#include "index.h"
+#include "hash.h"
+
+struct cal
+{
+	u08 orient;
+	u32 l, r;
+	u32 score;
+};
+
+typedef struct alignment
+{
+	u08 orient;
+	u32 left, right;
+	u32 score;
+} Alignment;
+
 
 struct ALN_Options
 {
 	u08 verbose;
-	u32 length, interval, band;
-	u32 items;
+	u32 length;
+	u32 interval;
+	u32 band;
 	u32 threshold;
+
+	u32 items;
+	u32 size;
+
 	Fingerprint * pt;
-	char pattern[4];
+	Index_Hash * index;
+
 	char * prefix;
 	char * pac;
 	char * si;
 	char * spt;
 	char * read;
 	char * sam;
+	char * dir;
+	char * hash;
 };
 
 

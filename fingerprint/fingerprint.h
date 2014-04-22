@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 #include "types.h"
 
 #define FPSize 8
@@ -77,6 +78,19 @@ struct Fingerprint12
 {
 	u32 pos;
 	FType print[12];
+};
+
+
+struct PDHeader
+{
+	int offset;
+	u32 items;
+	u32 length;
+	u32 interval;
+	u32 band;
+	Fingerprint max[FPSize];
+	Fingerprint min[FPSize];
+	char pattern[8];
 };
 
 

@@ -13,6 +13,14 @@
 #include "fingerprint.h"
 
 
+struct SPT_Header
+{
+	u32 items, length, interval, band;
+	u32 size;
+	FType max[FPSize];
+	FType min[FPSize];
+};
+
 struct Index_Options
 {
 	u08 verbose;

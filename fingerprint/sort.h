@@ -9,6 +9,8 @@
 
 #include "types.h"
 #include "utils.h"
+#include "index.h"
+#include "hash.h"
 
 struct Sort_Options
 {
@@ -17,7 +19,9 @@ struct Sort_Options
 	char * pattern;
 	char * uspt;
 	char * spt;
+	char * info;
+	char * hash;
 };
-	
+
 #endif
 

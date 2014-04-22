@@ -30,6 +30,6 @@ int main()
 	if(a++, a==1) printf("A");
 	else printf("B");
 
-	printf("Sizoef(array):%d \r\n", sizeof(array));
+	printf("Sizoef(array):%d %d \r\n", sizeof(array), sizeof(long));
   return 0;
 }

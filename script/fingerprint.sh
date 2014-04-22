@@ -1,27 +1,31 @@
 # ! /bin/bash
 
-dir=/data/lrm/database/human_g1k_v37/demo
+dir=~/workspace/lrm/database/human_g1k_v37
 reference=reference.fa
 query=read.fa
 
-Findex=index8
-
-PATH=/workspace/lrm/lrm-software/public-tools:/workspace/lrm/lrm-software/fingerprint:/workspace/lrm/lrm-software/bwa-sw/bwa-0.6.2:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
-
+Length=3000
 
 cd $dir
+if [ -d $Length ]; then cd $Length; else mkdir $Length; cd $Length; fi
 
-if [ ! -d $Findex ]; then mkdir $Findex; fi
-rm -rf $Findex/*
+if [ ! -f $reference ]; then cp ../demo/$reference .; fi
 
-index -l 1000 -i 8 -b 10 -r $reference -v 3
+# generate read.fa
+if [ ! -f $query ]
+then
+	wgsim -N 1000 -1 $Length -d0 -S11 -e0 -r0.02 $reference $query /dev/null
+	fastqToFa read.fq $query
+fi
+
+# generate index
+if [ ! -d index ]; then mkdir index; fi
+rm -rf index/*
+
+index -l $Length -i 8 -b 10 -d index -r $reference -v 3
 if [ $? -ne 0 ]; then echo "Index Error"; exit -1; fi
 
-mv $reference.* $Findex
-
-#sort -u $Findex/$reference.uspt -p ACGT -v 3
+#sort -u index/reference.fa.uspt -p ACGT -v 3
 #if [ $? -ne 0 ]; then echo "Sort Error"; exit -1; fi
-
-
 
 

@@ -15,15 +15,31 @@ static int print_help()
 {
 	fprintf(stdout, "%s ", PROGRAM);
 	fprintf(stdout, "ver (%s):\r\n", VERSION);
-  fprintf(stdout, "  -i(nterval) num *\r\n");
-  fprintf(stdout, "  -l(ength) num *\r\n");
-  fprintf(stdout, "  -b(and) num *\r\n");
-  fprintf(stdout, "  -r[eference] str *\r\n");
-  fprintf(stdout, "  -p(refix) str\r\n");
-  fprintf(stdout, "  -d(irectory) str\r\n");
-  fprintf(stdout, "  -v(erbose)\r\n");
-  fprintf(stdout, "  -V(ersion)\r\n");
-  return 0;
+	fprintf(stdout, "  -l(ength) num *\r\n");
+	fprintf(stdout, "  -i(nterval) num *\r\n");
+	fprintf(stdout, "  -b(and) num *\r\n");
+	fprintf(stdout, "  -r[eference] str *\r\n");
+	fprintf(stdout, "  -p(refix) str\r\n");
+	fprintf(stdout, "  -d(irectory) str\r\n");
+	fprintf(stdout, "  -v(erbose)\r\n");
+	fprintf(stdout, "  -V(ersion)\r\n");
+	return 0;
+}
+
+static void dump_Options(struct Index_Options * op)
+{
+	fprintf(stdout, "%s ", PROGRAM);
+	fprintf(stdout, "ver (%s):\r\n", VERSION);
+	fprintf(stdout, "  -verbose 0x%02x\r\n", op->verbose);
+	fprintf(stdout, "  -interval %d\r\n", op->interval);
+	fprintf(stdout, "  -length %d\r\n", op->length);
+	fprintf(stdout, "  -band %d\r\n", op->band);
+	fprintf(stdout, "  -prefix %s\r\n", op->prefix);
+	fprintf(stdout, "  -directory %s\r\n", op->dir);
+	fprintf(stdout, "  -reference %s\r\n", op->database);
+	fprintf(stdout, "  -pac %s\r\n", op->pac);
+	fprintf(stdout, "  -uspt %s\r\n", op->uspt);
+	fprintf(stdout, "  -si %s\r\n", op->si);
 }
 
 void init_Index_Options(struct Index_Options * op)
@@ -89,22 +105,6 @@ static int format_Options(struct Index_Options * op)
 	if(op->verbose & 0x40) op->verbose = 0x40;
 
 	return 0;
-}
-
-static void dump_Options(struct Index_Options * op)
-{
-	fprintf(stdout, "%s ", PROGRAM);
-	fprintf(stdout, "ver (%s):\r\n", VERSION);
-  fprintf(stdout, "  -verbose 0x%02x\r\n", op->verbose);
-  fprintf(stdout, "  -interval %d\r\n", op->interval);
-  fprintf(stdout, "  -length %d\r\n", op->length);
-  fprintf(stdout, "  -band %d\r\n", op->band);
-  fprintf(stdout, "  -prefix %s\r\n", op->prefix);
-  fprintf(stdout, "  -directory %s\r\n", op->dir);
-  fprintf(stdout, "  -reference %s\r\n", op->database);
-  fprintf(stdout, "  -pac %s\r\n", op->pac);
-  fprintf(stdout, "  -uspt %s\r\n", op->uspt);
-  fprintf(stdout, "  -si %s\r\n", op->si);
 }
 
 static int generate_pac(struct Index_Options * op, struct Reference * ref)
@@ -300,12 +300,6 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 				return -2;
 			}
 
-			// debug
-			//for(tmp=0; tmp<ref->chrom->pnum; tmp++)
-			//{
-			//	printf("nb:%d sn:%d\r\n", ref->chrom->pie[tmp].nb, ref->chrom->pie[tmp].plen);
-			//}
-
 			fwrite(ref, sizeof(struct Reference), 1, fp);
 			fwrite(ref->chrom, sizeof(struct chromosome), ref->seqs, fp);
 			for(tmp=0; tmp<ref->seqs; tmp++)
@@ -317,10 +311,9 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 				free(chrptr->sn);
 			}
 
-			free(ref->chrom);
-
 			fprintf(stdout, "> N:%d A:%d C:%d G:%d T:%d \r\n", ref->N, ref->A, ref->C, ref->G, ref->T);
 
+			free(ref->chrom);
 			fclose(fp);
 			fp = NULL;
 			break;
@@ -333,6 +326,7 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 {
 	FILE * fp, * database;
 	struct chromosome * chrptr;
+	struct SPT_Header header;
 	int tmp, pnum, num;
 	char * buffer;
 	u32 i, cursor, position;
@@ -379,12 +373,12 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 
 	fclose(fp);
 
-  database = fopen(op->pac, "r");
+	database = fopen(op->pac, "r");
 	if(database == NULL)
-  {
-	  fprintf(stderr, "Database cannot open:%s\r\n", op->pac);
-		return -2;
-  }
+	{
+	    fprintf(stderr, "Database cannot open:%s\r\n", op->pac);
+	  	return -2;
+	}
 
 	fp = fopen(op->uspt, "wb");
 	if(fp == NULL)
@@ -402,18 +396,20 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 		spt.print[tmp] = -1;
 	}
 
-	// fill 20 bytes
-	fwrite(lpt.print, 1, 20, fp);
-	
-	fwrite(&op->items, sizeof(op->items), 1, fp);
-	fwrite(lpt.print, sizeof(FType), FPSize, fp);
-	fwrite(spt.print, sizeof(FType), FPSize, fp);
-	fwrite(&op->length, sizeof(op->length), 1, fp);
-	fwrite(&op->interval, sizeof(op->interval), 1, fp);
-	fwrite(&op->band, sizeof(op->band), 1, fp);
+	// fill SPT_Header
+	header.items = op->items;
+	header.length = op->length;
+	header.interval = op->interval;
+	header.band = op->band;
+	header.size = FPSize;
 
-	// fill 20 bytes
-	fwrite(lpt.print, 1, 20, fp);
+	fwrite(&header, sizeof(struct SPT_Header), 1, fp);
+
+	if(ftell(fp) != sizeof(struct SPT_Header))
+	{
+		fclose(database); fclose(fp);
+		return -3;
+	}
 
 	cursor = 0;
 	buffer = (char *) malloc(op->length + 1);
@@ -461,22 +457,28 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 
 	// re-write info
 	cursor = ftell(fp);
-	fseek(fp, 20, SEEK_SET);
-	fwrite(&op->items, sizeof(op->items), 1, fp);
-	fwrite(lpt.print, sizeof(FType), FPSize, fp);
-	fwrite(spt.print, sizeof(FType), FPSize, fp);
+
+	for(tmp=0; tmp<header.size; tmp++)
+	{
+		header.max[tmp] = lpt.print[tmp];
+		header.min[tmp] = spt.print[tmp];
+	}
+	header.items = op->items;
+	fseek(fp, 0, SEEK_SET);
+	fwrite(&header, sizeof(struct SPT_Header), 1, fp);
+
 	fseek(fp, 0, SEEK_END);
 	if(cursor != ftell(fp))
 	{
 		fprintf(stderr, "Re-write uspt file error\r\n");
 		return -1;
 	}
+	// end writting info
 	
-	fclose(fp);
-	fclose(database);
-
 	fprintf(stdout, "> Built %d fingprinters\r\n", op->items);
 
+	fclose(fp);
+	fclose(database);
 	free(buffer);
 	for(tmp=0; tmp<ref->seqs; tmp++)
 	{
@@ -493,17 +495,13 @@ int build_fingerprint(struct Index_Options * op)
 	struct Reference ref;
 	int tmp;
 	
-  tmp = format_Options(op);
+	tmp = format_Options(op);
 	if(tmp < 0) return tmp;
 
 	fprintf(stdout, "===> Dump parameters...%d\r\n", op->verbose & 0x80);
 	if(op->verbose & 0x80)
 	{
 		dump_Options(op);
-	}
-
-	if(op->verbose & 0x40)
-	{
 	}
 
 	fprintf(stdout, "===> Generate PAC/SI file...%d\r\n", op->verbose & 0x01);
@@ -534,12 +532,12 @@ int main(int argc, char ** argv)
 
   init_Index_Options(&op);
   options = 0;
-  while( (c=getopt(argc,argv,"i:l:b:r:p:d:v:V")) >=0)
+  while( (c=getopt(argc,argv,"l:i:b:r:p:d:v:V")) >=0)
   {
     switch(c)
     {
-      case 'i':options++; op.interval = atoi(optarg); break;
       case 'l':options++; op.length = atoi(optarg); break;
+      case 'i':options++; op.interval = atoi(optarg); break;
       case 'b':options++; op.band = atoi(optarg); break;
       case 'r':options++; op.database = optarg; break;
       case 'p': op.prefix = optarg; break;

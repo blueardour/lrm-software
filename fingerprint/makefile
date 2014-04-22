@@ -6,31 +6,27 @@ CFLAGS=   -g -Wall -O2
 CXXFLAGS= $(CFLAGS)
 AR=   ar
 
-LIBS= utils.o fingerprint.o
+LIBS= utils.o fingerprint.o hash.o
+OBJS = aln.o sort.o index.o $(LIBS)
 TARGET= aln sort index printfinger
 
-all: $(LIBS) $(TARGET)
+all: $(TARGET)
 
-aln: aln.o  fingerprint.h
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+$(TARGET): %: %.o $(LIBS)
+	$(CC) $(CFLAGS) $< -o $@ $(LIBS)
 
-sort: sort.o  fingerprint.h
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+-include $(OBJS:.o=.d)
 
-index: index.o  fingerprint.h
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+%.d:%.c
+	@set -e; \
+	rm -f $@; \
+	$(CC) -MM $< $(INCLUDEFLAGS) > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
 
-printfinger: printfinger.o  fingerprint.h
-	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS)
+%.o: %.c
+	$(CC) -c $(CFLAGS) $< -o $@
 
-
-.SUFFIXES:.c .o .cc
-
-.c.o:	fingerprint.h
-	    $(CC) -c $(CFLAGS) $< -o $@
-.cc.o:  fingerprint.h
-	    $(CXX) -c $(CXXFLAGS) $< -o $@
-
-
+.PHONY: clean
 clean:
-	@rm *.o
+	@-rm *.o
