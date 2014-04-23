@@ -99,7 +99,6 @@ int main(int argc, char ** argv)
 		fprintf(stdout, "\r\n");
 
 		fprintf(stdout, "Esitmate: %d \r\n", estimate(ptptr - FPSize, ptptr, FPSize));
-		fprintf(stdout, "EsitmateReverse: %d \r\n", estimateReverse(ptptr - FPSize, ptptr, FPSize));
 	}
 
 	free(buffer);

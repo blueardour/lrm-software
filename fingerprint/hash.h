@@ -20,6 +20,7 @@ typedef struct Index_Hash
 
 u64 getKey(FType * pt);
 int compare_hash(const void * a, const void * b);
+int judge_range(FType * pt);
 
 
 #endif

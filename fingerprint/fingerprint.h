@@ -25,10 +25,8 @@ extern u08 nst_nt4_table[256];
 
 inline FType value(FType a, FType b);
 FType estimate(FType *, FType *, int );
-FType estimateReverse(FType *, FType *, int );
-FType estimate_debug(FType *, FType *, int );
-FType estimateReverse_debug(FType *, FType *, int );
 
+void reverseFinger(FType *, FType *);
 void stampFinger4(FType *, char *, u32);
 void stampFinger8(FType *, char *, u32);
 void stampFinger12(FType *, char *, u32);

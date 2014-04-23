@@ -13,13 +13,6 @@
 #include "index.h"
 #include "hash.h"
 
-struct cal
-{
-	u08 orient;
-	u32 l, r;
-	u32 score;
-};
-
 typedef struct alignment
 {
 	u08 orient;

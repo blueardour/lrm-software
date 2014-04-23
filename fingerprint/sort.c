@@ -182,6 +182,12 @@ int sort_fingerprint(struct Sort_Options * op)
 		}
 		else
 		{
+			if(sizeof(Fingerprint) != (FPSize * sizeof(FType) + sizeof(u32)))
+			{
+				fprintf(stderr, "Fingerprint size not match %ld \r\n", sizeof(Fingerprint));
+				return -1;
+			}
+
 			fprintf(stdout, "> %d items read. len:%d interval:%d band:%d\r\n", \
 						   header.items, header.length, header.interval, header.band);
 
@@ -193,19 +199,19 @@ int sort_fingerprint(struct Sort_Options * op)
 			}
 		}
 
-		if(fseek(fp, sizeof(struct SPT_Header), SEEK_SET) != 0)
-		{
-			fprintf(stderr, "Fseek uspt/spt file error\r\n");
-			fclose(fp);
-			return -4;
-		}
-
 		index = (struct Index_Key *) malloc(sizeof(struct Index_Key) * header.items);
 		if(index == NULL)
 		{
 			fprintf(stderr, "Malloc memories failed \r\n");
 			fclose(fp);
 			return -5;
+		}
+
+		if(fseek(fp, sizeof(struct SPT_Header), SEEK_SET) == -1)
+		{
+			fprintf(stderr, "Fseek uspt/spt file error\r\n");
+			fclose(fp);
+			return -4;
 		}
 
 		for(i=0; i<header.items; i++)
@@ -218,6 +224,7 @@ int sort_fingerprint(struct Sort_Options * op)
 			}
 
 			index[i].key = getKey(pt.print);
+			index[i].i = i;
 		}
 
 		qsort(index, header.items, sizeof(struct Index_Key), compare_key);
@@ -241,6 +248,9 @@ int sort_fingerprint(struct Sort_Options * op)
 			{
 				free(index); fclose(fp); fclose(database); return -6;
 			}
+
+			// debug
+			//fprintf(stderr, "pos: %d %d \r\n", pt.pos, index[i].i);
 
 			if(fseek(database, sizeof(struct SPT_Header) + i * sizeof(pt), SEEK_SET) == -1)
 			{

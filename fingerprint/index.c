@@ -440,7 +440,9 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 				pt.pos = position + i + 1;
 				stampFinger(pt.print, buffer, op->length);
 
-				//if(pt.pos == 1199024) printf("%s\r\n", buffer);
+				// debug
+				//if(pt.pos > 79153100 && pt.pos < 79153200) printf("%d\r\n", pt.pos);
+				//if(tmp==0 && pnum == 0 && i < 100) printf("%d\r\n", pt.pos);
 
 				for(num=0; num<FPSize; num++)
 				{

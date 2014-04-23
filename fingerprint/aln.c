@@ -51,6 +51,7 @@ void init_ALN_Options(struct ALN_Options * op)
 
 	op->threshold = 0;
 	op->pt = NULL;
+	op->index = NULL;
 
 	op->prefix = NULL;
 	op->dir = NULL;
@@ -131,11 +132,17 @@ static int load_spt(struct ALN_Options * op)
 		return -2;
 	}
 
-	if(fread(&header, sizeof(header), 1, fp) != 1) return -2;
+	if(fread(&header, sizeof(struct SPT_Header), 1, fp) != 1) return -2;
 	op->items = header.items;
 	op->length = header.length;
-	op->interval = header.length;
+	op->interval = header.interval;
 	op->band = header.band;
+
+	if(judge_range(header.max) != 0)
+	{
+		fprintf(stderr, "Fingerprint range overflow \r\n");
+		return -3;
+	}
 
 	fprintf(stderr, "> Going to read %d fingerprint. len:%d interval:%d band:%d\r\n", \
 					op->items, op->length, op->interval, op->band);
@@ -147,10 +154,14 @@ static int load_spt(struct ALN_Options * op)
 	}
 
 	fseek(fp, sizeof(struct SPT_Header), SEEK_SET);
-	for(i=0; i<op->items; i++)
-	{
-		if(fread(op->pt + i, sizeof(Fingerprint), 1, fp) != 1) { free(op->pt); return -2; }
-	}
+	if(fread(op->pt, sizeof(Fingerprint), op->items, fp) != op->items)
+   	{
+	   fprintf(stderr, "Read spt/uspt file failed\r\n");
+	   free(op->pt);
+	   return -2;
+   	}
+
+	fprintf(stdout, "%d: %d \r\n", op->pt[0].pos, op->pt[1].pos);
 
 	fprintf(stderr, "> Done\r\n");
 	fclose(fp);
@@ -164,12 +175,14 @@ static int load_spt(struct ALN_Options * op)
 
 	fseek(fp, 0, SEEK_END);
 	i = ftell(fp);
-	i = i / 16;
-	op->index = (struct Index_Hash *) malloc(i * sizeof(struct Index_Hash));
+	i = i / sizeof(Index_Hash);
+	op->index = (Index_Hash *) malloc(i * sizeof(Index_Hash));
 	fprintf(stderr, "> Going to read hash table (%d items) \r\n", i);
-	if(fread(op->index, sizeof(struct Index_Hash), i, fp) != i)
+	fseek(fp, 0, SEEK_SET);
+	if(fread(op->index, sizeof(Index_Hash), i, fp) != i)
 	{
-		fclose(fp); free(op->index); free(op->pt); return -2;
+		fprintf(stderr, "items read: %d \r\n", i);
+	   	fclose(fp); free(op->index); free(op->pt); return -2;
 	}
 	fprintf(stderr, "> Done\r\n");
 
@@ -207,6 +220,105 @@ static u32 getPosition(char * name)
 
 }
 
+static int align_read_conflict(struct ALN_Options * op)
+{
+	FILE * read, * pac;
+	char * buffer, * bbuffer;
+	char sn[100];
+	int tmp;
+	u32 i, begin, end;
+	u32 score;
+	u32 pos;
+	Alignment align;
+	FType print[4][FPSize], * ptptr;
+
+	read = fopen(op->read, "r");
+	if(read == NULL) 
+	{
+		fprintf(stderr, "File cannot open:%s\r\n", op->read);
+		return -2;
+	}
+
+	pac = fopen(op->pac, "r");
+	if(pac == NULL) 
+	{
+		fprintf(stderr, "File cannot open:%s\r\n", op->pac);
+		return -2;
+	}
+
+	begin = 0;
+	end = op->items;
+
+	buffer = (char *)malloc(op->length + 1);
+	buffer[op->length] = 0;
+	bbuffer = (char *)malloc(op->length + 1);
+	bbuffer[op->length] = 0;
+
+	pos = 0;
+	while(1)
+	{
+		if(feof(read) != 0) break;
+
+		if(read2b_util(read, '>', 0, NULL, 0) < 0) break;;
+		tmp = fscanf(read, "%s", sn);
+		if(tmp == EOF) break;
+
+		pos = getPosition(sn);
+		if(pos == 0) break;
+
+		if(read2b_util(read, '\n', 0, NULL, 0) < 0) break;
+
+		if(read2b_util(read, '>', 1, buffer, op->length) != 0) break;
+
+		strncpy(bbuffer, buffer + op->length/2, op->length - op->length/2);
+		strncat(bbuffer, buffer, op->length/2);
+
+		stampFinger8(print[0], buffer, op->length);
+		stampFinger8(print[1], bbuffer, op->length);
+		
+		print[2][0] = print[0][0];
+		print[2][1] = print[0][1];
+		print[2][2] = print[0][2];
+		print[2][3] = print[0][3];
+		print[2][4] = print[1][0];
+		print[2][5] = print[1][1];
+		print[2][6] = print[1][2];
+		print[2][7] = print[1][3];
+
+		print[3][0] = print[0][7];
+		print[3][1] = print[0][6];
+		print[3][2] = print[0][5];
+		print[3][3] = print[0][4];
+		print[3][4] = print[1][7];
+		print[3][5] = print[1][6];
+		print[3][6] = print[1][5];
+		print[3][7] = print[1][4];
+
+		ptptr = search_position(op, pos);
+		if(ptptr == NULL) break;
+
+		align.score = estimate(print[2], ptptr, FPSize);
+		score = estimate(print[3], ptptr, FPSize);
+		if(score < align.score) align.score = score;
+
+		tmp = 0;
+		for(i=begin; i<end; i++)
+		{
+			if(align.score >= estimate(print[2], op->pt[i].print, FPSize) || \
+				align.score >= estimate(print[3], op->pt[i].print, FPSize))
+			{
+				tmp++;
+			}
+		}
+		fprintf(stdout, "Conflicts: %d \r\n", tmp);
+	}
+
+	fclose(pac);
+	fclose(read);
+	free(buffer);
+	return 0;
+}
+
 static int align_read_debug(struct ALN_Options * op)
 {
 	FILE * read, * pac;
@@ -214,10 +326,10 @@ static int align_read_debug(struct ALN_Options * op)
 	char sn[100];
 	int tmp;
 	u32 i, begin, end;
-	u32 score[2];
+	u32 score;
 	u32 pos;
-	struct cal cals;
-	FType print[FPSize*2];
+	Alignment align;
+	FType print[4][FPSize], * ptptr;
 
 	read = fopen(op->read, "r");
 	if(read == NULL) 
@@ -255,32 +367,26 @@ static int align_read_debug(struct ALN_Options * op)
 
 		if(read2b_util(read, '>', 1, buffer, op->length) != 0) break;
 
-		stampFinger(print, buffer, op->length);
+		stampFinger(print[0], buffer, op->length);
+		reverseFinger(print[0], print[1]);
 		
-		score[0] = estimate(print, search_position(op, pos), FPSize);
-		score[1] = estimateReverse(print, search_position(op, pos), FPSize);
-		if(score[1] > score[0])
-		{
-			cals.score = score[0];
-			cals.orient = 0;
-		}
-		else
-		{
-			cals.score = score[1];
-			cals.orient = 0;
-		}
+		ptptr = search_position(op, pos);
+		if(ptptr == NULL) break;
 
+		align.score = estimate(print[0], ptptr, FPSize);
+		score = estimate(print[1], ptptr, FPSize);
+		if(score < align.score) align.score = score;
+
+		tmp = 0;
 		for(i=begin; i<end; i++)
 		{
-			score[0] = estimate(print, op->pt[i].print, FPSize);
-			score[1] = estimateReverse(print, op->pt[i].print, FPSize);
-			if(cals.score >= score[0] || cals.score >= score[1]) 
+			if(align.score >= estimate(print[0], op->pt[i].print, FPSize) || \
+				align.score >= estimate(print[1], op->pt[i].print, FPSize))
 			{
-				fprintf(stdout, "%d\t%d\t%d\t%s\r\n", op->pt[i].pos, score[0], score[1], sn);
+				tmp++;
 			}
 		}
-
-		getchar();
+		fprintf(stdout, "Conflicts: %d \r\n", tmp);
 	}
 
 	fclose(pac);
@@ -338,8 +444,16 @@ static int align_read(struct ALN_Options * op)
 		hptr = (Index_Hash *)bsearch(&hash, op->index, op->size, sizeof(Index_Hash), compare_hash);
 
 		begin = hptr->left; end = hptr->right;
+		align.score = -1;
 		for(i=begin; i<end; i++)
 		{
+			score = estimate(print, op->pt[i].print, FPSize);
+			if(score < align.score)
+			{
+				align.left = 0;
+				align.orient = 0;
+			}
+			//insert(score, 
 		}
 
 		// forward-reverse mapping
@@ -375,6 +489,12 @@ int aln_by_fingerprint(struct ALN_Options * op)
 		if(tmp < 0) return tmp;
 	}
 
+	if((op->verbose & 0x07) == 0x07)
+	{
+		tmp = align_read_conflict(op);
+		if(tmp < 0) return tmp;
+	}
+
 	if((op->verbose & 0x05) == 0x05)
 	{
 		tmp = align_read_debug(op);
@@ -389,7 +509,8 @@ int aln_by_fingerprint(struct ALN_Options * op)
 	}
 
 	if(op->pt != NULL) free(op->pt);
-  return 0;
+	if(op->index != NULL) free(op->index);
+	return 0;
 }
 
 
