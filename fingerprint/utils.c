@@ -31,34 +31,34 @@ u32 newRand(u32 range, int seed)
 
 char * getFileName(const char * FilePath)
 {
-  char * filename;
-  int i;
-  filename = (char *) FilePath;
-  for(i=strlen(FilePath)-1; i>=0; i--)
-  {
-    if(FilePath[i] == '\\' || FilePath[i] == '/')
+	char * filename;
+	int i;
+	filename = (char *) FilePath;
+	for(i=strlen(FilePath)-1; i>=0; i--)
+	{
+		if(FilePath[i] == '\\' || FilePath[i] == '/')
 		{
-      filename = (char *)(FilePath + i + 1);
+			filename = (char *)(FilePath + i + 1);
 			break;
 		}
-  }
-  return filename;
+	}
+	return filename;
 }
 
 char * getFilePath(const char * FilePath)
 {
-  char * path;
-  int i;
-  path = (char *) malloc(strlen(FilePath));
-  for(i=strlen(FilePath)-1; i>=0; i--)
-  {
-    if(FilePath[i] == '\\' || FilePath[i] == '/')
+	char * path;
+	int i;
+	path = (char *) malloc(strlen(FilePath));
+	for(i=strlen(FilePath)-1; i>=0; i--)
+	{
+		if(FilePath[i] == '\\' || FilePath[i] == '/')
 		{
 			strncpy(path, FilePath, i+1);
 			path[i+1] = 0;
 			break;
 		}
-  }
+	}
 	if(i == -1)
 	{
 		free(path);
@@ -69,18 +69,18 @@ char * getFilePath(const char * FilePath)
 
 char * getFileType(const char * FilePath)
 {
-  char * type;
-  int i;
-  type = (char *)FilePath;
-  for(i=strlen(FilePath)-1; i>=0; i--)
-  {
-    if(FilePath[i] == '.' )
+	char * type;
+	int i;
+	type = (char *)FilePath;
+	for(i=strlen(FilePath)-1; i>=0; i--)
+	{
+		if(FilePath[i] == '.' )
 		{
 			type = (char *)(FilePath + i + 1);
 			break;
 		}
-  }
-  return type;
+	}
+	return type;
 }
 
 // forward

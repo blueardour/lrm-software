@@ -9,7 +9,7 @@
 
 #include "types.h"
 
-#define FPSize 8
+#define FPSize 16
 
 #if(FPSize == 4)
 typedef struct Fingerprint4 Fingerprint;
@@ -17,6 +17,8 @@ typedef struct Fingerprint4 Fingerprint;
 typedef struct Fingerprint8 Fingerprint;
 #elif(FPSize == 12)
 typedef struct Fingerprint12 Fingerprint;
+#elif(FPSize == 16)
+typedef struct Fingerprint16 Fingerprint;
 #else
 #error "Not support FPSize";
 #endif
@@ -78,6 +80,11 @@ struct Fingerprint12
 	FType print[12];
 };
 
+struct Fingerprint16
+{
+	u32 pos;
+	FType print[16];
+};
 
 struct PDHeader
 {
@@ -88,7 +95,6 @@ struct PDHeader
 	u32 band;
 	Fingerprint max[FPSize];
 	Fingerprint min[FPSize];
-	char pattern[8];
 };
 
 

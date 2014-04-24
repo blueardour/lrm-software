@@ -161,7 +161,7 @@ static int load_spt(struct ALN_Options * op)
 	   return -2;
    	}
 
-	fprintf(stdout, "%d: %d \r\n", op->pt[0].pos, op->pt[1].pos);
+	//fprintf(stdout, "%d: %d \r\n", op->pt[0].pos, op->pt[1].pos);
 
 	fprintf(stderr, "> Done\r\n");
 	fclose(fp);
@@ -211,7 +211,7 @@ static u32 getPosition(char * name)
 
 	j = 0;
 	pos[0] = pos[1] = 0;
-	for(i=0; i<strlen(name); i++)
+	for(i=0; i<(int)strlen(name); i++)
 	{
 		if(name[i] == '_') pos[j++] = i;
 		if(j == 2) break;
@@ -227,7 +227,7 @@ static int align_read_conflict(struct ALN_Options * op)
 	FILE * read, * pac;
 	char * buffer, * bbuffer;
 	char sn[100];
-	int tmp;
+	int tmp, size;
 	u32 i, begin, end;
 	u32 score;
 	u32 pos;
@@ -282,37 +282,56 @@ static int align_read_conflict(struct ALN_Options * op)
 		print[2][1] = print[0][1];
 		print[2][2] = print[0][2];
 		print[2][3] = print[0][3];
-		print[2][4] = print[1][0];
-		print[2][5] = print[1][1];
-		print[2][6] = print[1][2];
-		print[2][7] = print[1][3];
+		print[2][4] = print[0][4];
+		print[2][5] = print[0][5];
+		print[2][6] = print[0][6];
+		print[2][7] = print[0][7];
+		print[2][8] = print[1][0];
+		print[2][9] = print[1][1];
+		print[2][10]= print[1][2];
+		print[2][11]= print[1][3];
+		print[2][12]= print[1][4];
+		print[2][13]= print[1][5];
+		print[2][14]= print[1][6];
+		print[2][15]= print[1][7];
 
 		print[3][0] = print[0][7];
 		print[3][1] = print[0][6];
 		print[3][2] = print[0][5];
 		print[3][3] = print[0][4];
-		print[3][4] = print[1][7];
-		print[3][5] = print[1][6];
-		print[3][6] = print[1][5];
-		print[3][7] = print[1][4];
+		print[3][4] = print[0][3];
+		print[3][5] = print[0][2];
+		print[3][6] = print[0][1];
+		print[3][7] = print[0][0];
+		print[3][8] = print[1][7];
+		print[3][9] = print[1][6];
+		print[3][10]= print[1][5];
+		print[3][11]= print[1][4];
+		print[3][12]= print[1][3];
+		print[3][13]= print[1][2];
+		print[3][14]= print[1][1];
+		print[3][15]= print[1][0];
 
 		ptptr = search_position(op, pos);
 		if(ptptr == NULL) break;
 
-		align.score = estimate(print[2], ptptr, FPSize);
-		score = estimate(print[3], ptptr, FPSize);
+		size = 8;
+		align.score = estimate(print[2], ptptr, size);
+		score = estimate(print[3], ptptr, size);
 		if(score < align.score) align.score = score;
 
 		tmp = 0;
 		for(i=begin; i<end; i++)
 		{
-			if(align.score >= estimate(print[2], op->pt[i].print, FPSize) || \
-				align.score >= estimate(print[3], op->pt[i].print, FPSize))
+			if(align.score >= estimate(print[2], op->pt[i].print, size) || \
+				align.score >= estimate(print[3], op->pt[i].print, size))
 			{
 				tmp++;
+				fprintf(stdout, "pos: %d \r\n", op->pt[i].pos);
 			}
 		}
 		fprintf(stdout, "Conflicts: %d \r\n", tmp);
+		getchar();
 	}
 
 	fclose(pac);

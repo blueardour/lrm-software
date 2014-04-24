@@ -59,8 +59,6 @@ void stampFinger(FType * print, char * buffer, u32 len)
 	stampFinger8(print, buffer, len);
 #elif(FPSize == 12)
 	stampFinger12(print, buffer, len);
-#else
-#error "Not support FPSize";
 #endif
 }
 
@@ -129,7 +127,7 @@ void stampFinger8(FType * print, char * buffer, u32 len)
 void stampFinger12(FType * print, char * buffer, u32 len)
 {
 	static FType stamp[12];
-	static int i;
+	static u32 i;
 
 	memset(print, 0, 12*sizeof(FType));
 	memset(stamp, 0, 12*sizeof(FType));
@@ -189,7 +187,7 @@ void stampFinger12(FType * print, char * buffer, u32 len)
 
 	memset(stamp+8, 0, 4*sizeof(FType));
 
-	for(; i>=0; i--)
+	for(; i==0; i--)
 	{
 		switch(buffer[i])
 		{

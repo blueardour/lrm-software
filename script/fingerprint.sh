@@ -4,6 +4,8 @@ dir=~/workspace/lrm/database/human_g1k_v37
 reference=reference.fa
 query=read.fa
 
+index=index-2
+
 Length=3000
 
 cd $dir
@@ -19,13 +21,13 @@ then
 fi
 
 # generate index
-if [ ! -d index ]; then mkdir index; fi
-rm -rf index/*
+if [ ! -d $index ]; then mkdir $index; fi
+rm -rf $index/*
 
-index -l $Length -i 8 -b 10 -d index -r $reference -v 3
+index -l $Length -i 8 -b 10 -d $index -r $reference -v 3
 if [ $? -ne 0 ]; then echo "Index Error"; exit -1; fi
 
-sort -u index/${reference}.uspt  -v 1
-if [ $? -ne 0 ]; then echo "Sort Error"; exit -1; fi
+#sort -u index/${reference}.uspt  -v 1
+#if [ $? -ne 0 ]; then echo "Sort Error"; exit -1; fi
 
 

@@ -60,7 +60,7 @@ void init_Index_Options(struct Index_Options * op)
 static int format_Options(struct Index_Options * op)
 { 
 	int len;
-	char * path;
+	const char * path;
 
 	len = 0;
 	path = NULL;
@@ -245,7 +245,7 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 				}
 				else
 				{
-					if(tmp >= op->band)
+					if(tmp >= (int)op->band)
 					{
 						if(chrptr->pnum == (pnum-1))
 						{
@@ -346,7 +346,7 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 	}
 
 	ref->chrom = (struct chromosome *) malloc(ref->seqs*sizeof(struct chromosome));
-	if(fread(ref->chrom, sizeof(struct chromosome), ref->seqs, fp) != ref->seqs)
+	if(fread(ref->chrom, sizeof(struct chromosome), ref->seqs, fp) != (size_t)ref->seqs)
 	{
 		fprintf(stderr, "SI File read error-2\r\n");
 		return -2;
@@ -359,12 +359,12 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 		chrptr->sn = (char *)malloc(chrptr->nlen + 1);
 		chrptr->sn[chrptr->nlen] = 0;
 
-		if(fread(chrptr->pie, sizeof(struct piece), chrptr->pnum, fp) != chrptr->pnum)
+		if(fread(chrptr->pie, sizeof(struct piece), chrptr->pnum, fp) != (size_t)chrptr->pnum)
 		{
 			fprintf(stderr, "SI File read error-3\r\n");
 			return -2;
 		}
-		if(fread(chrptr->sn, 1, chrptr->nlen, fp) != chrptr->nlen)
+		if(fread(chrptr->sn, 1, chrptr->nlen, fp) != (size_t)chrptr->nlen)
 		{
 			fprintf(stderr, "SI File read error-4\r\n");
 			return -2;
@@ -439,17 +439,12 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 					return -1;
 				}
 
-				//if(buffer[op->length] == 0) printf("^1\r\n"); else printf("^0\r\n");
 				strncpy(bbuffer, buffer + op->length/2, op->length - op->length/2 + 1);
-				//printf("^2\r\n");
 				strncat(bbuffer, buffer, op->length/2);
-				//printf("^3\r\n");
 
 				pt.pos = position + i + 1;
-				stampFinger4(pt.print, buffer, op->length);
-				//printf("^4\r\n");
-				stampFinger4(pt.print + 4, bbuffer, op->length);
-				//printf("^5\r\n");
+				stampFinger8(pt.print, buffer, op->length);
+				stampFinger8(pt.print + 8, bbuffer, op->length);
 
 				// debug
 				//if(pt.pos > 79153100 && pt.pos < 79153200) printf("%d\r\n", pt.pos);
@@ -471,7 +466,7 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 	// re-write info
 	cursor = ftell(fp);
 
-	for(tmp=0; tmp<header.size; tmp++)
+	for(tmp=0; tmp<(int)header.size; tmp++)
 	{
 		header.max[tmp] = lpt.print[tmp];
 		header.min[tmp] = spt.print[tmp];

@@ -292,11 +292,11 @@ int main(int argc, char ** argv)
       case 's': op.spt = optarg; break;
       case 'v': op.verbose = atoi(optarg); break;
       case 'V': fprintf(stdout, "%s\r\n", VERSION); return 0;
-      default: return print_help(getFileName(argv[0]));
+      default: return print_help();
     }
   }
 
-  if(options < 1) return print_help(getFileName(argv[0]));
+  if(options < 1) return print_help();
 
   return sort_fingerprint(&op);
 }
