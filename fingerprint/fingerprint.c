@@ -28,17 +28,14 @@ inline FType value(FType a, FType b)
 
 FType estimate(FType * pt1, FType * pt2, int size)
 {
+	int i;
 	FType result;
 
-	result  = value(pt1[0], pt2[0]);
-	result += value(pt1[1], pt2[1]);
-	result += value(pt1[2], pt2[2]);
-	result += value(pt1[3], pt2[3]);
-
-	result += value(pt1[4], pt2[4]);
-	result += value(pt1[5], pt2[5]);
-	result += value(pt1[6], pt2[6]);
-	result += value(pt1[7], pt2[7]);
+	result = 0;
+	for(i=0; i<size; i++)
+	{
+		result += value(pt1[i], pt2[i]);
+	}
 	return result;
 }
 

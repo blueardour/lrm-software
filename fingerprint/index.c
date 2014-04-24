@@ -45,12 +45,12 @@ static void dump_Options(struct Index_Options * op)
 void init_Index_Options(struct Index_Options * op)
 {
 	op->verbose = -1;
-  op->length = 1000;
+	op->length = 1000;
 	op->interval = 128;
 	op->band = 10;
 	op->items = 0;
-  op->database = NULL;
-  op->prefix = NULL;
+	op->database = NULL;
+	op->prefix = NULL;
 	op->pac = NULL;
 	op->uspt = NULL;
 	op->si = NULL;
@@ -65,7 +65,7 @@ static int format_Options(struct Index_Options * op)
 	len = 0;
 	path = NULL;
 
-  if(op->length < 1 || op->length > 65000) return -1;
+	if(op->length < 1 || op->length > 65000) return -1;
 
 	if(op->dir != NULL) path = op->dir; else path=getFilePath(op->database);
 	if(path == NULL) path = "./";
@@ -130,8 +130,8 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 	database = fopen(op->database,"r");
 	if(database == NULL)
 	{
-	  fprintf(stderr, "Database cannot open:%s\r\n",op->database);
-	  return -2;
+		fprintf(stderr, "Database cannot open:%s\r\n",op->database);
+		return -2;
 	}
 
 	fseek(database, 0, SEEK_SET);
@@ -150,7 +150,7 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 		fclose(database); database = NULL;
 		return -2;
 	}
-	
+
 	num = 32;
 	ref->chrom = (struct chromosome *) malloc(sizeof(struct chromosome)*num);
 
@@ -197,7 +197,7 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 			if(database != NULL) fclose(database);
 			return -2;
 		}
-		
+
 		lc = 'N'; tmp = 0;
 		chrptr->pie[chrptr->pnum].nb = 0;
 		chrptr->pie[chrptr->pnum].plen = 0;
@@ -271,7 +271,7 @@ static int generate_pac(struct Index_Options * op, struct Reference * ref)
 		{
 			chrptr->slen += chrptr->pie[tmp].plen + chrptr->pie[tmp].nb;
 		}
-		
+
 		fprintf(stdout, "\t%d\r\n", chrptr->slen);
 
 		// finish all seqs or read unexpected char
@@ -328,7 +328,7 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 	struct chromosome * chrptr;
 	struct SPT_Header header;
 	int tmp, pnum, num;
-	char * buffer;
+	char * buffer, * bbuffer;
 	u32 i, cursor, position;
 	Fingerprint pt, lpt, spt;
 
@@ -376,8 +376,8 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 	database = fopen(op->pac, "r");
 	if(database == NULL)
 	{
-	    fprintf(stderr, "Database cannot open:%s\r\n", op->pac);
-	  	return -2;
+		fprintf(stderr, "Database cannot open:%s\r\n", op->pac);
+		return -2;
 	}
 
 	fp = fopen(op->uspt, "wb");
@@ -414,6 +414,8 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 	cursor = 0;
 	buffer = (char *) malloc(op->length + 1);
 	buffer[op->length] = 0;
+	bbuffer = (char *) malloc(op->length + 1);
+	bbuffer[op->length] = 0;
 	for(tmp=0; tmp<ref->seqs; tmp++)
 	{
 		chrptr = ref->chrom + tmp;
@@ -433,12 +435,21 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 				{
 					fprintf(stderr, "Read File [%d in %d]. \r\n", cursor + i, chrptr->slen);
 					fprintf(stderr, "Read File error[%d]. Err:%d, EOF:%d\r\n", \
-									i, feof(database), ferror(database));
+							i, feof(database), ferror(database));
 					return -1;
 				}
 
+				//if(buffer[op->length] == 0) printf("^1\r\n"); else printf("^0\r\n");
+				strncpy(bbuffer, buffer + op->length/2, op->length - op->length/2 + 1);
+				//printf("^2\r\n");
+				strncat(bbuffer, buffer, op->length/2);
+				//printf("^3\r\n");
+
 				pt.pos = position + i + 1;
-				stampFinger(pt.print, buffer, op->length);
+				stampFinger4(pt.print, buffer, op->length);
+				//printf("^4\r\n");
+				stampFinger4(pt.print + 4, bbuffer, op->length);
+				//printf("^5\r\n");
 
 				// debug
 				//if(pt.pos > 79153100 && pt.pos < 79153200) printf("%d\r\n", pt.pos);
@@ -476,7 +487,7 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 		return -1;
 	}
 	// end writting info
-	
+
 	fprintf(stdout, "> Built %d fingprinters\r\n", op->items);
 
 	fclose(fp);
@@ -496,7 +507,7 @@ int build_fingerprint(struct Index_Options * op)
 {
 	struct Reference ref;
 	int tmp;
-	
+
 	tmp = format_Options(op);
 	if(tmp < 0) return tmp;
 
@@ -520,7 +531,7 @@ int build_fingerprint(struct Index_Options * op)
 		if(tmp < 0) return tmp;
 	}
 
-  return 0;
+	return 0;
 }
 
 
@@ -528,31 +539,31 @@ int build_fingerprint(struct Index_Options * op)
 
 int main(int argc, char ** argv)
 {
-  struct Index_Options op;
-  char c;
-  int options;
+	struct Index_Options op;
+	char c;
+	int options;
 
-  init_Index_Options(&op);
-  options = 0;
-  while( (c=getopt(argc,argv,"l:i:b:r:p:d:v:V")) >=0)
-  {
-    switch(c)
-    {
-      case 'l':options++; op.length = atoi(optarg); break;
-      case 'i':options++; op.interval = atoi(optarg); break;
-      case 'b':options++; op.band = atoi(optarg); break;
-      case 'r':options++; op.database = optarg; break;
-      case 'p': op.prefix = optarg; break;
-      case 'd': op.dir = optarg; break;
-      case 'v': op.verbose = atoi(optarg); break;
-      case 'V': fprintf(stdout, "%s\r\n", VERSION); return 0;
-      default: return print_help();
-    }
-  }
+	init_Index_Options(&op);
+	options = 0;
+	while( (c=getopt(argc,argv,"l:i:b:r:p:d:v:V")) >=0)
+	{
+		switch(c)
+		{
+			case 'l':options++; op.length = atoi(optarg); break;
+			case 'i':options++; op.interval = atoi(optarg); break;
+			case 'b':options++; op.band = atoi(optarg); break;
+			case 'r':options++; op.database = optarg; break;
+			case 'p': op.prefix = optarg; break;
+			case 'd': op.dir = optarg; break;
+			case 'v': op.verbose = atoi(optarg); break;
+			case 'V': fprintf(stdout, "%s\r\n", VERSION); return 0;
+			default: return print_help();
+		}
+	}
 
-  if(options < 4) return print_help();
+	if(options < 4) return print_help();
 
-  return build_fingerprint(&op);
+	return build_fingerprint(&op);
 }
 
 #endif

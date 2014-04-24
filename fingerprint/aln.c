@@ -166,6 +166,8 @@ static int load_spt(struct ALN_Options * op)
 	fprintf(stderr, "> Done\r\n");
 	fclose(fp);
 
+	if(strcmp(getFileType(op->spt), "uspt") == 0) return 0;
+
 	fp = fopen(op->hash, "rb");
 	if(fp == NULL) 
 	{
@@ -270,7 +272,7 @@ static int align_read_conflict(struct ALN_Options * op)
 
 		if(read2b_util(read, '>', 1, buffer, op->length) != 0) break;
 
-		strncpy(bbuffer, buffer + op->length/2, op->length - op->length/2);
+		strncpy(bbuffer, buffer + op->length/2, op->length - op->length/2 + 1);
 		strncat(bbuffer, buffer, op->length/2);
 
 		stampFinger8(print[0], buffer, op->length);
