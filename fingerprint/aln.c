@@ -319,6 +319,9 @@ static int align_read_conflict(struct ALN_Options * op)
 		align.score = estimate(print[2], ptptr, size);
 		score = estimate(print[3], ptptr, size);
 		if(score < align.score) align.score = score;
+		
+		fprintf(stdout, "%lx %lx %lx \r\n", getKey(print[2],size),getKey(print[3],size), \
+				getKey(ptptr,size));
 
 		tmp = 0;
 		for(i=begin; i<end; i++)
@@ -327,7 +330,9 @@ static int align_read_conflict(struct ALN_Options * op)
 				align.score >= estimate(print[3], op->pt[i].print, size))
 			{
 				tmp++;
-				fprintf(stdout, "pos: %d \r\n", op->pt[i].pos);
+				fprintf(stdout, "pos: %d, expect: %d\r\n", op->pt[i].pos, pos);
+				fprintf(stdout, "%d ", getKey(print[2],size) == getKey(op->pt[i].print, size));
+				fprintf(stdout, "%d \r\n", getKey(print[3],size) == getKey(op->pt[i].print, size));
 			}
 		}
 		fprintf(stdout, "Conflicts: %d \r\n", tmp);
@@ -461,7 +466,7 @@ static int align_read(struct ALN_Options * op)
 		stampFinger(print, buffer, op->length);
 
 		// forward-forward mapping
-		hash.key = getKey(print);
+		hash.key = getKey(print, 8);
 		hptr = (Index_Hash *)bsearch(&hash, op->index, op->size, sizeof(Index_Hash), compare_hash);
 
 		begin = hptr->left; end = hptr->right;

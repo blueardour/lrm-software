@@ -223,7 +223,7 @@ int sort_fingerprint(struct Sort_Options * op)
 				return -4;
 			}
 
-			index[i].key = getKey(pt.print);
+			index[i].key = getKey(pt.print, 8);
 			index[i].i = i;
 		}
 
