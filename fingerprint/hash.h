@@ -6,19 +6,20 @@
 #include "fingerprint.h"
 #include "types.h"
 
-typedef struct Index_Key
+typedef struct Sort
 {
 	u32 i;
+	u32 pos;
 	u64 key;
-} Index_Key;
+} Sort;
 
-typedef struct Index_Hash
+typedef struct Hash
 {
-	u32 left, right;
+	u32 beg, end;
 	u64 key;
-} Index_Hash;
+} Hash;
 
-u64 getKey(FType * pt, int);
+u64 get_key(FType * pt);
 int compare_hash(const void * a, const void * b);
 int judge_range(FType * pt);
 

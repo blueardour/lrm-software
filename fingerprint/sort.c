@@ -75,10 +75,10 @@ static int format_Options(struct Sort_Options * op)
 }
 
 
-static int build_hash(struct Index_Key * index, u32 size, struct Sort_Options * op)
+static int build_hash(Sort * sort, u32 size, struct Sort_Options * op)
 {
 	FILE * info, * hash;
-	struct Index_Hash * table;
+	struct Hash * table;
 	u32 table_size;
 	u32 i, j;
 
@@ -97,37 +97,37 @@ static int build_hash(struct Index_Key * index, u32 size, struct Sort_Options * 
   	}
 
 	table_size = 60000;
-	table = (struct Index_Hash *) malloc(sizeof(struct Index_Hash) * table_size);
+	table = (Hash *) malloc(sizeof(Hash) * table_size);
 	if(table == NULL)
 	{
 		fprintf(stderr, "memories malloc failed \r\n");
 		return -5;
 	}
 
-	table[0].key = index[0].key;
-	table[0].left = 0;
+	table[0].key = sort[0].key;
+	table[0].beg = 0;
 	for(i=0,j=0; i<size; i++)
 	{
-		fprintf(info, "%016lx\r\n", index[i].key);
+		fprintf(info, "%016lx\r\n", sort[i].key);
 
-		if(table[j].key != index[i].key)
+		if(table[j].key != sort[i].key)
 		{
-			table[j++].right = i;
+			table[j++].end = i;
 
 			if(j == table_size)
 			{
 				table_size += 60000;
-				table = (struct Index_Hash *)realloc(table, sizeof(struct Index_Hash) * table_size);
+				table = (Hash *)realloc(table, sizeof(Hash) * table_size);
 			}
-			table[j].left = i;
-			table[j].key = index[i].key;
+			table[j].beg = i;
+			table[j].key = sort[i].key;
 		}
 	}
-	table[j++].right = i;
+	table[j++].end = i;
 	
 	fprintf(stdout, "Hash items: %d \r\n", j);
 
-	if(fwrite(table, sizeof(struct Index_Hash), j, hash) != j)
+	if(fwrite(table, sizeof(Hash), j, hash) != j)
 	{
 		fprintf(stderr, "hash file write failed \r\n");
 		return -5;
@@ -141,7 +141,14 @@ static int build_hash(struct Index_Key * index, u32 size, struct Sort_Options * 
 
 static int compare_key(const void * a, const void * b)
 {
-	return ((struct Index_Key *) a)->key - ((struct Index_Key *) b)->key;
+	u64 key;
+
+	key = ((Sort *) a)->key - ((Sort *) b)->key;
+	if(key == 0)
+	{
+		if(((Sort *) a)->pos > ((Sort *) a)->pos) return 1; else return -1;
+	}
+	else return key;
 }
 
 
@@ -150,9 +157,9 @@ int sort_fingerprint(struct Sort_Options * op)
 	char c;
 	FILE * fp, * database;
 	Fingerprint pt;
+	Sort * sort;
 	u32 i;
 	struct SPT_Header header;
-	struct Index_Key * index;
 	
 	fp = database = NULL;
 
@@ -199,8 +206,8 @@ int sort_fingerprint(struct Sort_Options * op)
 			}
 		}
 
-		index = (struct Index_Key *) malloc(sizeof(struct Index_Key) * header.items);
-		if(index == NULL)
+		sort = (Sort *) malloc(sizeof(Sort) * header.items);
+		if(sort == NULL)
 		{
 			fprintf(stderr, "Malloc memories failed \r\n");
 			fclose(fp);
@@ -219,15 +226,16 @@ int sort_fingerprint(struct Sort_Options * op)
 			if(fread(&pt, sizeof(pt), 1, fp) != 1)
 			{
 				fprintf(stderr, "Read fingerprint error\r\n");
-				fclose(fp); free(index);
+				fclose(fp); free(sort);
 				return -4;
 			}
 
-			index[i].key = getKey(pt.print, 8);
-			index[i].i = i;
+			sort[i].key = get_key(pt.print);
+			sort[i].i = i;
+			sort[i].pos = pt.pos;
 		}
 
-		qsort(index, header.items, sizeof(struct Index_Key), compare_key);
+		qsort(sort, header.items, sizeof(Sort), compare_key);
 
 		database = fopen(op->spt, "wb");
   		if(database == NULL)
@@ -240,33 +248,30 @@ int sort_fingerprint(struct Sort_Options * op)
 
 		for(i=0; i<header.items; i++)
 		{
-			if(fseek(fp, sizeof(struct SPT_Header) + index[i].i * sizeof(pt), SEEK_SET) == -1)
+			if(fseek(fp, sizeof(struct SPT_Header) + sort[i].i * sizeof(pt), SEEK_SET) == -1)
 			{
-				free(index); fclose(fp); fclose(database); return -6;
+				free(sort); fclose(fp); fclose(database); return -6;
 			}
 			if(fread(&pt, sizeof(pt), 1, fp) != 1)
 			{
-				free(index); fclose(fp); fclose(database); return -6;
+				free(sort); fclose(fp); fclose(database); return -6;
 			}
-
-			// debug
-			//fprintf(stderr, "pos: %d %d \r\n", pt.pos, index[i].i);
 
 			if(fseek(database, sizeof(struct SPT_Header) + i * sizeof(pt), SEEK_SET) == -1)
 			{
-				free(index); fclose(fp); fclose(database); return -6;
+				free(sort); fclose(fp); fclose(database); return -6;
 			}
 			if(fwrite(&pt, sizeof(pt), 1, database) != 1)
 			{
-				free(index); fclose(fp); fclose(database); return -6;
+				free(sort); fclose(fp); fclose(database); return -6;
 			}
 		}
 
-		build_hash(index, header.items, op);
-
-		free(index);
 		fclose(fp);
 		fclose(database);
+
+		build_hash(sort, header.items, op);
+		free(sort);
 	}
 
 	return 0;

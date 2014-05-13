@@ -328,7 +328,7 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 	struct chromosome * chrptr;
 	struct SPT_Header header;
 	int tmp, pnum, num;
-	char * buffer, * bbuffer;
+	char * buffer;
 	u32 i, cursor, position;
 	Fingerprint pt, lpt, spt;
 
@@ -414,8 +414,6 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 	cursor = 0;
 	buffer = (char *) malloc(op->length + 1);
 	buffer[op->length] = 0;
-	bbuffer = (char *) malloc(op->length + 1);
-	bbuffer[op->length] = 0;
 	for(tmp=0; tmp<ref->seqs; tmp++)
 	{
 		chrptr = ref->chrom + tmp;
@@ -439,12 +437,8 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 					return -1;
 				}
 
-				strncpy(bbuffer, buffer + op->length/2, op->length - op->length/2 + 1);
-				strncat(bbuffer, buffer, op->length/2);
-
 				pt.pos = position + i + 1;
 				stampFinger8(pt.print, buffer, op->length);
-				stampFinger8(pt.print + 8, bbuffer, op->length);
 
 				// debug
 				//if(pt.pos > 79153100 && pt.pos < 79153200) printf("%d\r\n", pt.pos);

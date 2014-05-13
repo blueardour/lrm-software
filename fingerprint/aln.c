@@ -47,15 +47,15 @@ void init_ALN_Options(struct ALN_Options * op)
 	op->length = 0;
 	op->interval = 0;
 	op->band = 0;
-	op->items = 0;
-
 	op->threshold = 0;
+
+	op->items = 0;
+	op->tsize = 0;
 	op->pt = NULL;
-	op->index = NULL;
+	op->table = NULL;
 
 	op->prefix = NULL;
 	op->dir = NULL;
-
 	op->hash = NULL;
 	op->si = NULL;
 	op->pac = NULL;
@@ -177,14 +177,14 @@ static int load_spt(struct ALN_Options * op)
 
 	fseek(fp, 0, SEEK_END);
 	i = ftell(fp);
-	i = i / sizeof(Index_Hash);
-	op->index = (Index_Hash *) malloc(i * sizeof(Index_Hash));
-	fprintf(stderr, "> Going to read hash table (%d items) \r\n", i);
+	op->tsize = i / sizeof(Hash);
+	op->table = (Hash *) malloc(op->tsize * sizeof(Hash));
+	fprintf(stderr, "> Going to read hash table (%d items) \r\n", op->tsize);
 	fseek(fp, 0, SEEK_SET);
-	if(fread(op->index, sizeof(Index_Hash), i, fp) != i)
+	if(fread(op->table, sizeof(Hash), i, fp) != i)
 	{
 		fprintf(stderr, "items read: %d \r\n", i);
-	   	fclose(fp); free(op->index); free(op->pt); return -2;
+	   	fclose(fp); free(op->table); free(op->pt); return -2;
 	}
 	fprintf(stderr, "> Done\r\n");
 
@@ -205,7 +205,7 @@ static FType * search_position(struct ALN_Options * op, u32 pos)
 	return NULL;
 }
 
-static u32 getPosition(char * name)
+static u32 get_position(char * name)
 {
 	int i, j, pos[2];
 
@@ -229,10 +229,9 @@ static int align_read_conflict(struct ALN_Options * op)
 	char sn[100];
 	int tmp, size;
 	u32 i, begin, end;
-	u32 score;
+	u32 score[2];
 	u32 pos;
-	Alignment align;
-	FType print[4][FPSize], * ptptr;
+	FType print[4][8], * ptptr;
 
 	read = fopen(op->read, "r");
 	if(read == NULL) 
@@ -265,7 +264,7 @@ static int align_read_conflict(struct ALN_Options * op)
 		tmp = fscanf(read, "%s", sn);
 		if(tmp == EOF) break;
 
-		pos = getPosition(sn);
+		pos = get_position(sn);
 		if(pos == 0) break;
 
 		if(read2b_util(read, '\n', 0, NULL, 0) < 0) break;
@@ -286,14 +285,6 @@ static int align_read_conflict(struct ALN_Options * op)
 		print[2][5] = print[0][5];
 		print[2][6] = print[0][6];
 		print[2][7] = print[0][7];
-		print[2][8] = print[1][0];
-		print[2][9] = print[1][1];
-		print[2][10]= print[1][2];
-		print[2][11]= print[1][3];
-		print[2][12]= print[1][4];
-		print[2][13]= print[1][5];
-		print[2][14]= print[1][6];
-		print[2][15]= print[1][7];
 
 		print[3][0] = print[0][7];
 		print[3][1] = print[0][6];
@@ -303,36 +294,27 @@ static int align_read_conflict(struct ALN_Options * op)
 		print[3][5] = print[0][2];
 		print[3][6] = print[0][1];
 		print[3][7] = print[0][0];
-		print[3][8] = print[1][7];
-		print[3][9] = print[1][6];
-		print[3][10]= print[1][5];
-		print[3][11]= print[1][4];
-		print[3][12]= print[1][3];
-		print[3][13]= print[1][2];
-		print[3][14]= print[1][1];
-		print[3][15]= print[1][0];
 
 		ptptr = search_position(op, pos);
 		if(ptptr == NULL) break;
 
 		size = 8;
-		align.score = estimate(print[2], ptptr, size);
-		score = estimate(print[3], ptptr, size);
-		if(score < align.score) align.score = score;
+		score[0] = estimate(print[2], ptptr, size);
+		score[1] = estimate(print[3], ptptr, size);
+		if(score[0] > score[1]) score[0] = score[1];
 		
-		fprintf(stdout, "%lx %lx %lx \r\n", getKey(print[2],size),getKey(print[3],size), \
-				getKey(ptptr,size));
+		fprintf(stdout, "%lx %lx %lx \r\n", get_key(print[2]),get_key(print[3]), get_key(ptptr));
 
 		tmp = 0;
 		for(i=begin; i<end; i++)
 		{
-			if(align.score >= estimate(print[2], op->pt[i].print, size) || \
-				align.score >= estimate(print[3], op->pt[i].print, size))
+			if(score[0] >= estimate(print[2], op->pt[i].print, size) || \
+				score[1] >= estimate(print[3], op->pt[i].print, size))
 			{
 				tmp++;
 				fprintf(stdout, "pos: %d, expect: %d\r\n", op->pt[i].pos, pos);
-				fprintf(stdout, "%d ", getKey(print[2],size) == getKey(op->pt[i].print, size));
-				fprintf(stdout, "%d \r\n", getKey(print[3],size) == getKey(op->pt[i].print, size));
+				fprintf(stdout, "%d ", get_key(print[2]) == get_key(op->pt[i].print));
+				fprintf(stdout, "%d \r\n", get_key(print[3]) == get_key(op->pt[i].print));
 			}
 		}
 		fprintf(stdout, "Conflicts: %d \r\n", tmp);
@@ -386,7 +368,7 @@ static int align_read_debug(struct ALN_Options * op)
 		tmp = fscanf(read, "%s", sn);
 		if(tmp == EOF) break;
 
-		pos = getPosition(sn);
+		pos = get_position(sn);
 		if(pos == 0) break;
 
 		if(read2b_util(read, '\n', 0, NULL, 0) < 0) break;
@@ -429,9 +411,8 @@ static int align_read(struct ALN_Options * op)
 	int tmp;
 	u32 i, begin, end;
 	u32 score;
-	Alignment align;
-	FType print[FPSize];
-	Index_Hash hash, * hptr;
+	FType print[2][FPSize];
+	Hash hash, * hptr;
 
 	read = fopen(op->read, "r");
 	if(read == NULL) 
@@ -463,30 +444,20 @@ static int align_read(struct ALN_Options * op)
 
 		if(read2b_util(read, '>', 1, buffer, op->length) != 0) break;
 
-		stampFinger(print, buffer, op->length);
+		stampFinger8(print[0], buffer, op->length);
 
 		// forward-forward mapping
-		hash.key = getKey(print, 8);
-		hptr = (Index_Hash *)bsearch(&hash, op->index, op->size, sizeof(Index_Hash), compare_hash);
+		hash.key = get_key(print[0]);
+		hptr = (Hash *)bsearch(&hash, op->table, op->tsize, sizeof(Hash), compare_hash);
 
-		begin = hptr->left; end = hptr->right;
-		align.score = -1;
+		begin = hptr->beg; end = hptr->end;
 		for(i=begin; i<end; i++)
 		{
-			score = estimate(print, op->pt[i].print, FPSize);
-			if(score < align.score)
-			{
-				align.left = 0;
-				align.orient = 0;
-			}
-			//insert(score, 
+			score = estimate(print[0], op->pt[i].print, FPSize);
 		}
 
 		// forward-reverse mapping
-
-
-
-
+		reverseFinger(print[0], print[1]);
 	}
 
 	fclose(sam);
@@ -535,7 +506,7 @@ int aln_by_fingerprint(struct ALN_Options * op)
 	}
 
 	if(op->pt != NULL) free(op->pt);
-	if(op->index != NULL) free(op->index);
+	if(op->table != NULL) free(op->table);
 	return 0;
 }
 
