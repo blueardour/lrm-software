@@ -9,7 +9,7 @@
 
 #include "types.h"
 
-#define FPSize 16
+#define FPSize 8
 
 #if(FPSize == 4)
 typedef struct Fingerprint4 Fingerprint;
