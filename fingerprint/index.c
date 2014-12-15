@@ -437,7 +437,6 @@ static int generate_uspt(struct Index_Options * op, struct Reference * ref)
 					return -1;
 				}
 
-
 				pt.pos = position + i + 1;
 				stampFinger8(pt.print, buffer, op->length);
 

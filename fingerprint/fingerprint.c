@@ -91,9 +91,9 @@ void stampFinger8(FType * print, char * buffer, u32 len)
 	static FType finger[8];
 	static u32 i;
 
-	print[0] = print[1] = print[2] = print[3] = 0;
-	print[4] = print[5] = print[6] = print[7] = 0;
-	finger[0] = finger[1] = finger[2] = finger[3] = 0;
+	memset(print, 0, 8 * sizeof(FType));
+	memset(finger, 0, 4 * sizeof(FType));
+
 	finger[4] = finger[5] = finger[6] = finger[7] = len;
 
 	for(i=0; i<len; i++)

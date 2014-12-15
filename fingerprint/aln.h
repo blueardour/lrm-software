@@ -24,16 +24,6 @@ typedef struct alignment
 struct ALN_Options
 {
 	u08 verbose;
-	u32 length;
-	u32 interval;
-	u32 band;
-	u32 threshold;
-
-	u32 items;
-	u32 size;
-
-	Fingerprint * pt;
-	Index_Hash * index;
 
 	char * prefix;
 	char * pac;
@@ -43,6 +33,17 @@ struct ALN_Options
 	char * sam;
 	char * dir;
 	char * hash;
+
+	u32 length;
+	u32 interval;
+	u32 band;
+	u32 threshold;
+
+	u32 items;
+	u32 tsize;
+
+	Fingerprint * pt;
+	Hash * table;
 };
 
 
